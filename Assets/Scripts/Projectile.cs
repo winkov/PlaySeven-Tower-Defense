@@ -34,6 +34,7 @@ public class Projectile : MonoBehaviour
     void MoveToTarget()
     {
         Vector3 targetPosition = target.transform.position + Vector3.up * 0.5f;
+        Vector3 previousPosition = transform.position;
 
         transform.position = Vector3.MoveTowards(
             transform.position,
@@ -41,7 +42,11 @@ public class Projectile : MonoBehaviour
             speed * Time.deltaTime
         );
 
-        transform.LookAt(targetPosition);
+        Vector3 movementDirection = transform.position - previousPosition;
+        if (movementDirection.sqrMagnitude > 0.001f)
+        {
+            transform.rotation = Quaternion.LookRotation(movementDirection.normalized);
+        }
 
         if (Vector3.Distance(transform.position, targetPosition) <= hitDistance)
         {

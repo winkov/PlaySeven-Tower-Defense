@@ -398,6 +398,7 @@ GameObject:
   - component: {fileID: 305096271}
   - component: {fileID: 305096276}
   - component: {fileID: 305096275}
+  - component: {fileID: 305096277}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -497,6 +498,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 905393a25bfd84942b330b20b58eaae1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuildManager
+--- !u!114 &305096277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 305096270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff7539e1a9c19a342871d09ee581bd70, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VisualManager
+  setupCamera: 1
+  colorExistingObjects: 1
+  createPathVisuals: 1
+  createCastleVisual: 1
+  pathWidth: 1.6
+  pathHeight: 0.06
+  castleSize: 2.2
+  groundColor: {r: 0.18, g: 0.55, b: 0.32, a: 1}
+  pathColor: {r: 0.55, g: 0.34, b: 0.16, a: 1}
+  castleColor: {r: 0.45, g: 0.35, b: 0.65, a: 1}
+  waypointColor: {r: 1, g: 0.75, b: 0.1, a: 1}
 --- !u!1 &333101244
 GameObject:
   m_ObjectHideFlags: 0
@@ -2243,6 +2267,7 @@ MonoBehaviour:
   messageText: {fileID: 911404477}
   startWaveButton: {fileID: 1812822913}
   buildTowerButton: {fileID: 167475071}
+  autoLayout: 1
 --- !u!1 &2061228399
 GameObject:
   m_ObjectHideFlags: 0

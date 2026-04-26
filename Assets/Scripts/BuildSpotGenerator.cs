@@ -5,7 +5,7 @@ public class BuildSpotGenerator : MonoBehaviour
     public GameObject buildSpotPrefab;
     public GameObject towerPrefab;
     public float sideOffset = 2.5f;
-    public float spotScale = 1f;
+    public float spotScale = 0.85f;
     public int buildCost = 50;
     public bool generateOnStart = true;
 
@@ -59,12 +59,12 @@ public class BuildSpotGenerator : MonoBehaviour
         {
             spotObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             spotObject.transform.position = position;
-            spotObject.transform.localScale = new Vector3(spotScale, 0.12f, spotScale);
+            spotObject.transform.localScale = new Vector3(spotScale, 0.08f, spotScale);
 
             Renderer spotRenderer = spotObject.GetComponent<Renderer>();
             if (spotRenderer != null)
             {
-                spotRenderer.material.color = Color.green;
+                spotRenderer.material.color = new Color(0.45f, 0.62f, 0.45f);
             }
         }
 

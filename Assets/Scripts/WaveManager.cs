@@ -109,19 +109,52 @@ public class WaveManager : MonoBehaviour
 
     GameObject CreateRuntimeEnemy(Vector3 spawnPosition)
     {
-        GameObject enemyObject = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        GameObject enemyObject = new GameObject("Runtime Enemy");
         enemyObject.name = "Runtime Enemy";
         enemyObject.transform.position = spawnPosition;
-        enemyObject.transform.localScale = new Vector3(0.8f, 1f, 0.8f);
 
-        Renderer enemyRenderer = enemyObject.GetComponent<Renderer>();
-        if (enemyRenderer != null)
-        {
-            enemyRenderer.material.color = Color.red;
-        }
+        GameObject body = CreateEnemyPart("Body", PrimitiveType.Capsule, enemyObject.transform);
+        body.transform.localPosition = new Vector3(0f, 0.65f, 0f);
+        body.transform.localScale = new Vector3(0.55f, 0.75f, 0.55f);
+        SetColor(body, new Color(0.55f, 0.12f, 0.1f));
+
+        GameObject head = CreateEnemyPart("Head", PrimitiveType.Sphere, enemyObject.transform);
+        head.transform.localPosition = new Vector3(0f, 1.35f, 0f);
+        head.transform.localScale = new Vector3(0.45f, 0.45f, 0.45f);
+        SetColor(head, new Color(0.75f, 0.18f, 0.12f));
+
+        GameObject marker = CreateEnemyPart("Helmet", PrimitiveType.Cube, enemyObject.transform);
+        marker.transform.localPosition = new Vector3(0f, 1.63f, 0f);
+        marker.transform.localScale = new Vector3(0.55f, 0.12f, 0.55f);
+        SetColor(marker, new Color(0.18f, 0.18f, 0.2f));
 
         enemyObject.AddComponent<Enemy>();
         return enemyObject;
+    }
+
+    GameObject CreateEnemyPart(string partName, PrimitiveType primitiveType, Transform parent)
+    {
+        GameObject part = GameObject.CreatePrimitive(primitiveType);
+        part.name = partName;
+        part.transform.SetParent(parent);
+        part.transform.localRotation = Quaternion.identity;
+
+        Collider collider = part.GetComponent<Collider>();
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
+
+        return part;
+    }
+
+    void SetColor(GameObject target, Color color)
+    {
+        Renderer renderer = target.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material.color = color;
+        }
     }
 
     void ScaleEnemyForWave(Enemy enemy)

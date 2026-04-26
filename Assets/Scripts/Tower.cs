@@ -86,7 +86,7 @@ public class Tower : MonoBehaviour
         GameObject projectileObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         projectileObject.name = "Runtime Projectile";
         projectileObject.transform.position = spawnPosition;
-        projectileObject.transform.localScale = Vector3.one * 0.35f;
+        projectileObject.transform.localScale = Vector3.one * 0.28f;
 
         Collider projectileCollider = projectileObject.GetComponent<Collider>();
         if (projectileCollider != null)
@@ -97,10 +97,16 @@ public class Tower : MonoBehaviour
         Renderer projectileRenderer = projectileObject.GetComponent<Renderer>();
         if (projectileRenderer != null)
         {
-            projectileRenderer.material.color = Color.red;
+            projectileRenderer.material.color = new Color(1f, 0.45f, 0.05f);
         }
 
-        projectileObject.AddComponent<Projectile>();
+        Light projectileLight = projectileObject.AddComponent<Light>();
+        projectileLight.color = new Color(1f, 0.45f, 0.05f);
+        projectileLight.range = 2.5f;
+        projectileLight.intensity = 1.2f;
+
+        Projectile projectile = projectileObject.AddComponent<Projectile>();
+        projectile.visibleScale = 0.28f;
         return projectileObject;
     }
 
