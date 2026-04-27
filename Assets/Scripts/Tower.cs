@@ -9,8 +9,28 @@ public class Tower : MonoBehaviour
     public Transform firePoint;
     public bool debugLogs = true;
 
+    public int upgradeDamageLevel = 0;
+    public int upgradeRangeLevel = 0;
+    public int upgradeFireRateLevel = 0;
+
+    public int upgradeDamageCost = 50;
+    public int upgradeRangeCost = 50;
+    public int upgradeFireRateCost = 50;
+
+    public int maxUpgradeLevel = 3;
+
     private float fireTimer;
     private bool warnedInvalidProjectilePrefab;
+    private int baseDamage;
+    private float baseRange;
+    private float baseFireRate;
+
+    void Awake()
+    {
+        baseDamage = damage;
+        baseRange = range;
+        baseFireRate = fireRate;
+    }
 
     void Update()
     {
@@ -108,6 +128,78 @@ public class Tower : MonoBehaviour
         Projectile projectile = projectileObject.AddComponent<Projectile>();
         projectile.visibleScale = 0.28f;
         return projectileObject;
+    }
+
+    public bool UpgradeDamage()
+    {
+        if (upgradeDamageLevel >= maxUpgradeLevel)
+        {
+            return false;
+        }
+
+        if (GameManager.Instance != null && GameManager.Instance.Gold >= upgradeDamageCost)
+        {
+            GameManager.Instance.AddGold(-upgradeDamageCost);
+            upgradeDamageLevel++;
+            damage = baseDamage + (upgradeDamageLevel * 5);
+
+            if (debugLogs)
+            {
+                Debug.Log("Tower damage upgraded to level " + upgradeDamageLevel + " (damage: " + damage + ")", this);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool UpgradeRange()
+    {
+        if (upgradeRangeLevel >= maxUpgradeLevel)
+        {
+            return false;
+        }
+
+        if (GameManager.Instance != null && GameManager.Instance.Gold >= upgradeRangeCost)
+        {
+            GameManager.Instance.AddGold(-upgradeRangeCost);
+            upgradeRangeLevel++;
+            range = baseRange + (upgradeRangeLevel * 2f);
+
+            if (debugLogs)
+            {
+                Debug.Log("Tower range upgraded to level " + upgradeRangeLevel + " (range: " + range + ")", this);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool UpgradeFireRate()
+    {
+        if (upgradeFireRateLevel >= maxUpgradeLevel)
+        {
+            return false;
+        }
+
+        if (GameManager.Instance != null && GameManager.Instance.Gold >= upgradeFireRateCost)
+        {
+            GameManager.Instance.AddGold(-upgradeFireRateCost);
+            upgradeFireRateLevel++;
+            fireRate = baseFireRate + (upgradeFireRateLevel * 0.5f);
+
+            if (debugLogs)
+            {
+                Debug.Log("Tower fire rate upgraded to level " + upgradeFireRateLevel + " (fire rate: " + fireRate + ")", this);
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     void OnDrawGizmosSelected()

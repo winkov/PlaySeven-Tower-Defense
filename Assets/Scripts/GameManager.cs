@@ -20,6 +20,7 @@ public class GameManager : MonoBehaviour
     void Awake()
     {
         Instance = this;
+        Debug.Log("GameManager Instance set", this);
     }
 
     void Start()
@@ -28,6 +29,7 @@ public class GameManager : MonoBehaviour
         castleHealth = castleMaxHealth;
         uiManager = FindAnyObjectByType<UIManager>();
         waveManager = FindAnyObjectByType<WaveManager>();
+        Debug.Log("GameManager Start - UIManager found: " + (uiManager != null) + ", WaveManager found: " + (waveManager != null), this);
         UpdateUI();
     }
 

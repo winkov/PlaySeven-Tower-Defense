@@ -519,8 +519,10 @@ MonoBehaviour:
   pathWidth: 1.6
   pathHeight: 0.06
   castleSize: 2.2
+  castlePrefabScale: 0.15
   treesPerPathSegment: 2
   rocksPerPathSegment: 1
+  useCastlePrefabs: 0
   groundColor: {r: 0.18, g: 0.55, b: 0.32, a: 1}
   pathColor: {r: 0.55, g: 0.34, b: 0.16, a: 1}
   castleColor: {r: 0.45, g: 0.35, b: 0.65, a: 1}
@@ -529,6 +531,10 @@ MonoBehaviour:
   treeLeafColor: {r: 0.08, g: 0.36, b: 0.13, a: 1}
   rockColor: {r: 0.42, g: 0.42, b: 0.4, a: 1}
   roofColor: {r: 0.26, g: 0.16, b: 0.45, a: 1}
+  castleKeepPrefab: {fileID: 157550, guid: c3dde025de9d13848819a29f2acc8b5b, type: 3}
+  castleTowerPrefab: {fileID: 135512, guid: 663fd3fcb0cd4fe4f8316a05b83dc575, type: 3}
+  castleRoofPrefab: {fileID: 177772, guid: b0b876e5ae42b8948bc6315d2c0a658f, type: 3}
+  roadMaterial: {fileID: 2100000, guid: 265c1517f551bbb4db1a48e2201a96f7, type: 2}
 --- !u!1 &333101244
 GameObject:
   m_ObjectHideFlags: 0
@@ -1490,6 +1496,161 @@ RectTransform:
   m_AnchoredPosition: {x: -309, y: 79.2}
   m_SizeDelta: {x: 160, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1595517823
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1595517829}
+  - component: {fileID: 1595517828}
+  - component: {fileID: 1595517827}
+  - component: {fileID: 1595517826}
+  - component: {fileID: 1595517825}
+  - component: {fileID: 1595517824}
+  m_Layer: 0
+  m_Name: Tower
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!135 &1595517824
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1595517823}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 5
+  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &1595517825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1595517823}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d86a67b530dcd6a47a47043338fb2315, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tower
+  range: 5
+  fireRate: 1
+  damage: 20
+  projectilePrefab: {fileID: 0}
+  firePoint: {fileID: 0}
+  debugLogs: 1
+--- !u!136 &1595517826
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1595517823}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5000001
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!23 &1595517827
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1595517823}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 726fc08564b3ff54d8150b631f117a13, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &1595517828
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1595517823}
+  m_Mesh: {fileID: 10206, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!4 &1595517829
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1595517823}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.5, z: 2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1598889288
 GameObject:
   m_ObjectHideFlags: 0
@@ -2121,10 +2282,6 @@ MonoBehaviour:
   startWaveButton: {fileID: 1812822913}
   buildTowerButton: {fileID: 167475071}
   autoLayout: 1
-  towerInfoText: {fileID: 0}
-  upgradeDamageButton: {fileID: 0}
-  upgradeRangeButton: {fileID: 0}
-  upgradeFireRateButton: {fileID: 0}
 --- !u!1 &2061228399
 GameObject:
   m_ObjectHideFlags: 0
@@ -2275,6 +2432,7 @@ SceneRoots:
   - {fileID: 705507995}
   - {fileID: 333101248}
   - {fileID: 894989153}
+  - {fileID: 1595517829}
   - {fileID: 2005872567}
   - {fileID: 1598889291}
   - {fileID: 305096274}

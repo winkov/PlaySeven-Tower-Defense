@@ -7,8 +7,8 @@ public class WaveManager : MonoBehaviour
     public Transform spawnPoint;
     public int[] enemiesPerWave = { 5, 8, 12, 16, 20 };
     public float spawnDelay = 0.75f;
-    public float enemyHealthMultiplierPerWave = 1.25f;
-    public float enemySpeedBonusPerWave = 0.15f;
+    public float enemyHealthMultiplierPerWave = 1.20f;
+    public float enemySpeedBonusPerWave = 0.35f;
     public bool debugLogs = true;
 
     private int currentWave;
@@ -24,6 +24,7 @@ public class WaveManager : MonoBehaviour
     {
         bonusSystem = FindAnyObjectByType<BonusSystem>();
         uiManager = FindAnyObjectByType<UIManager>();
+        Debug.Log("WaveManager Start - UIManager found: " + (uiManager != null), this);
 
         if (spawnPoint == null)
         {
@@ -39,10 +40,7 @@ public class WaveManager : MonoBehaviour
 
     public void StartNextWave()
     {
-        if (debugLogs)
-        {
-            Debug.Log("WaveManager received StartNextWave.", this);
-        }
+        Debug.Log("WaveManager StartNextWave called", this);
 
         if (waveRunning)
         {
@@ -100,105 +98,45 @@ public class WaveManager : MonoBehaviour
         }
         else
         {
-            enemyObject = CreateRuntimeEnemy(spawnPosition);
+            enemyObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            enemyObject.name = "Enemy";
+            enemyObject.transform.position = spawnPosition;
+            enemyObject.transform.localScale = Vector3.one * 0.5f;
+
+            Collider collider = enemyObject.GetComponent<Collider>();
+            if (collider != null)
+            {
+                collider.enabled = false;
+            }
         }
 
         Enemy enemy = enemyObject.GetComponent<Enemy>();
-        ScaleEnemyForWave(enemy);
-    }
-
-    GameObject CreateRuntimeEnemy(Vector3 spawnPosition)
-    {
-        GameObject enemyObject = new GameObject("Runtime Enemy");
-        enemyObject.name = "Runtime Enemy";
-        enemyObject.transform.position = spawnPosition;
-
-        GameObject body = CreateEnemyPart("Body", PrimitiveType.Capsule, enemyObject.transform);
-        body.transform.localPosition = new Vector3(0f, 0.65f, 0f);
-        body.transform.localScale = new Vector3(0.55f, 0.75f, 0.55f);
-        SetColor(body, new Color(0.55f, 0.12f, 0.1f));
-
-        GameObject head = CreateEnemyPart("Head", PrimitiveType.Sphere, enemyObject.transform);
-        head.transform.localPosition = new Vector3(0f, 1.35f, 0f);
-        head.transform.localScale = new Vector3(0.45f, 0.45f, 0.45f);
-        SetColor(head, new Color(0.75f, 0.18f, 0.12f));
-
-        GameObject marker = CreateEnemyPart("Helmet", PrimitiveType.Cube, enemyObject.transform);
-        marker.transform.localPosition = new Vector3(0f, 1.63f, 0f);
-        marker.transform.localScale = new Vector3(0.55f, 0.12f, 0.55f);
-        SetColor(marker, new Color(0.18f, 0.18f, 0.2f));
-
-        enemyObject.AddComponent<Enemy>();
-        return enemyObject;
-    }
-
-    GameObject CreateEnemyPart(string partName, PrimitiveType primitiveType, Transform parent)
-    {
-        GameObject part = GameObject.CreatePrimitive(primitiveType);
-        part.name = partName;
-        part.transform.SetParent(parent);
-        part.transform.localRotation = Quaternion.identity;
-
-        Collider collider = part.GetComponent<Collider>();
-        if (collider != null)
+        if (enemy == null)
         {
-            Destroy(collider);
+            enemy = enemyObject.AddComponent<Enemy>();
         }
 
-        return part;
-    }
-
-    void SetColor(GameObject target, Color color)
-    {
-        Renderer renderer = target.GetComponent<Renderer>();
-        if (renderer != null)
+        if (enemy != null)
         {
-            renderer.material.color = color;
+            EnemyTypeEnum type = GetEnemyTypeForWave(currentWave);
+            enemy.SetEnemyType(type);
+
+            if (currentWave > 0)
+            {
+                float healthMultiplier = Mathf.Pow(enemyHealthMultiplierPerWave, currentWave);
+                float speedBonus = enemySpeedBonusPerWave * currentWave;
+                enemy.ApplyWaveModifiers(healthMultiplier, speedBonus);
+            }
+
+            if (debugLogs)
+            {
+                Debug.Log("Spawned " + type + " enemy at " + spawnPosition, this);
+            }
         }
-    }
-
-    void ScaleEnemyForWave(Enemy enemy)
-    {
-        if (enemy == null) return;
-
-        float healthMultiplier = Mathf.Pow(enemyHealthMultiplierPerWave, currentWave);
-        enemy.maxHealth = Mathf.RoundToInt(enemy.maxHealth * healthMultiplier);
-        enemy.speed += enemySpeedBonusPerWave * currentWave;
-        enemy.goldValue += currentWave * 2;
-    }
-
-    public void NotifyEnemyRemoved()
-    {
-        if (!waveRunning) return;
-
-        aliveEnemies--;
-
-        if (aliveEnemies <= 0)
+        else if (debugLogs)
         {
-            FinishWave();
+            Debug.LogWarning("Failed to add Enemy script to object at " + spawnPosition, this);
         }
-        else
-        {
-            RefreshUI();
-        }
-    }
-
-    void FinishWave()
-    {
-        waveRunning = false;
-        currentWave++;
-
-        if (debugLogs)
-        {
-            Debug.Log("Wave finished.", this);
-        }
-
-        if (bonusSystem != null)
-        {
-            bonusSystem.ApplyBonus();
-        }
-
-        RefreshUI();
     }
 
     void RefreshUI()
@@ -209,5 +147,52 @@ public class WaveManager : MonoBehaviour
             uiManager.UpdateStartWaveButton(waveRunning, currentWave >= enemiesPerWave.Length);
             uiManager.UpdateWaveMessage(waveRunning, aliveEnemies);
         }
+    }
+
+    public void OnEnemyDied()
+    {
+        aliveEnemies--;
+
+        if (aliveEnemies <= 0 && waveRunning)
+        {
+            waveRunning = false;
+            currentWave++;
+            RefreshUI();
+
+            if (debugLogs)
+            {
+                Debug.Log("Wave " + (currentWave) + " completed!", this);
+            }
+        }
+    }
+
+    EnemyTypeEnum GetEnemyTypeForWave(int wave)
+    {
+        int random = Random.Range(0, 100);
+
+        if (wave <= 0)
+        {
+            if (random < 55) return EnemyTypeEnum.Mage;
+            if (random < 90) return EnemyTypeEnum.Archer;
+            return EnemyTypeEnum.Warrior;
+        }
+
+        if (wave == 1)
+        {
+            if (random < 30) return EnemyTypeEnum.Mage;
+            if (random < 75) return EnemyTypeEnum.Archer;
+            return EnemyTypeEnum.Warrior;
+        }
+
+        if (wave == 2)
+        {
+            if (random < 20) return EnemyTypeEnum.Mage;
+            if (random < 60) return EnemyTypeEnum.Archer;
+            return EnemyTypeEnum.Warrior;
+        }
+
+        if (random < 10) return EnemyTypeEnum.Mage;
+        if (random < 55) return EnemyTypeEnum.Archer;
+        return EnemyTypeEnum.Warrior;
     }
 }

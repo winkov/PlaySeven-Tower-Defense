@@ -11,7 +11,7 @@ public class VisualManager : MonoBehaviour
 
     public float pathWidth = 1.6f;
     public float pathHeight = 0.06f;
-    public float castleSize = 2.2f;
+    public float castleSize = 0.8f;
     public int treesPerPathSegment = 2;
     public int rocksPerPathSegment = 1;
 
@@ -168,7 +168,7 @@ public class VisualManager : MonoBehaviour
             Collider collider = segment.GetComponent<Collider>();
             if (collider != null)
             {
-                Destroy(collider);
+                collider.enabled = false;
             }
 
             if (createPathBorders)
@@ -198,7 +198,7 @@ public class VisualManager : MonoBehaviour
         Collider collider = border.GetComponent<Collider>();
         if (collider != null)
         {
-            Destroy(collider);
+            collider.enabled = false;
         }
     }
 
@@ -225,13 +225,13 @@ public class VisualManager : MonoBehaviour
         castle.transform.position = lastWaypoint.position;
 
         GameObject keep = CreatePrimitiveChild("Castle Keep", PrimitiveType.Cube, castle.transform);
-        keep.transform.localPosition = new Vector3(0f, 1.2f, 0f);
-        keep.transform.localScale = new Vector3(castleSize * 1.15f, castleSize * 1.15f, castleSize * 1.15f);
+        keep.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+        keep.transform.localScale = new Vector3(castleSize * 0.8f, castleSize * 0.9f, castleSize * 0.8f);
         SetMaterial(keep, castleMaterial);
 
         GameObject roof = CreatePrimitiveChild("Castle Roof", PrimitiveType.Cylinder, castle.transform);
-        roof.transform.localPosition = new Vector3(0f, 2.65f, 0f);
-        roof.transform.localScale = new Vector3(castleSize * 0.85f, 0.45f, castleSize * 0.85f);
+        roof.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+        roof.transform.localScale = new Vector3(castleSize * 0.95f, castleSize * 0.4f, castleSize * 0.95f);
         SetMaterial(roof, roofMaterial);
 
         CreateCastleTower(castle.transform, new Vector3(-1.55f, 0f, -1.55f));
@@ -248,13 +248,13 @@ public class VisualManager : MonoBehaviour
     void CreateCastleTower(Transform parent, Vector3 localPosition)
     {
         GameObject tower = CreatePrimitiveChild("Castle Tower", PrimitiveType.Cylinder, parent);
-        tower.transform.localPosition = localPosition + Vector3.up * 1.05f;
-        tower.transform.localScale = new Vector3(0.7f, 1.4f, 0.7f);
+        tower.transform.localPosition = localPosition + Vector3.up * 0.6f;
+        tower.transform.localScale = new Vector3(0.35f, 0.8f, 0.35f);
         SetMaterial(tower, castleMaterial);
 
         GameObject roof = CreatePrimitiveChild("Tower Roof", PrimitiveType.Cylinder, parent);
-        roof.transform.localPosition = localPosition + Vector3.up * 2.1f;
-        roof.transform.localScale = new Vector3(0.85f, 0.35f, 0.85f);
+        roof.transform.localPosition = localPosition + Vector3.up * 1.25f;
+        roof.transform.localScale = new Vector3(0.45f, 0.3f, 0.45f);
         SetMaterial(roof, roofMaterial);
     }
 
