@@ -14,6 +14,7 @@ public class WaypointPath : MonoBehaviour
         RefreshWaypoints();
     }
 
+
     void RefreshWaypoints()
     {
         waypoints.Clear();

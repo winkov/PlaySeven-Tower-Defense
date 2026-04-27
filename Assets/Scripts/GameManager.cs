@@ -55,6 +55,7 @@ public class GameManager : MonoBehaviour
         return gold;
     }
 
+
     public void DamageCastle(int damage)
     {
         if (gameOver) return;
@@ -75,6 +76,7 @@ public class GameManager : MonoBehaviour
     {
         return castleHealth;
     }
+
 
     void UpdateUI()
     {

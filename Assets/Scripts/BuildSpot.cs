@@ -16,22 +16,25 @@ public class BuildSpot : MonoBehaviour
     {
         gameManager = FindAnyObjectByType<GameManager>();
         spotRenderer = GetComponent<Renderer>();
-        
+
         // Garantir que o BuildSpot tem Collider para receber cliques
+
         Collider collider = GetComponent<Collider>();
         if (collider == null)
         {
             BoxCollider boxCollider = gameObject.AddComponent<BoxCollider>();
             boxCollider.size = new Vector3(1f, 0.1f, 1f);
         }
-        
+
+
         UpdateVisual();
     }
 
     void OnMouseDown()
     {
         Debug.Log("BuildSpot clicked! BuildMode: " + (BuildManager.Instance != null ? BuildManager.Instance.IsBuildModeActive : false), this);
-        
+
+
         if (hasTower)
         {
             if (builtTower != null)
@@ -50,7 +53,8 @@ public class BuildSpot : MonoBehaviour
             Debug.Log("Build mode is not active, cannot build", this);
             return;
         }
-        
+
+
         if (gameManager == null)
         {
             Debug.LogWarning("GameManager not found", this);

@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
-
+using UnityEngine.InputSystem;
 public class UIManager : MonoBehaviour
 {
     public Text goldText;
@@ -77,7 +77,77 @@ public class UIManager : MonoBehaviour
             goldText.text = "Gold: " + gold;
         }
     }
+    void CreateUIIfMissing()
+{
+    // 🔥 SE JÁ EXISTE UI NO CANVAS → USA ELA
+    if (towerInfoText != null)
+    {
+        towerInfoPanel = towerInfoText.transform.parent.gameObject;
+        towerInfoRect = towerInfoPanel.GetComponent<RectTransform>();
+        return;
+    }
 
+    // 🔥 SE NÃO EXISTE → CRIA (seu código original)
+    towerInfoPanel = new GameObject("TowerInfoPanel");
+    towerInfoRect = towerInfoPanel.AddComponent<RectTransform>();
+    towerInfoRect.SetParent(canvas.transform, false);
+    towerInfoRect.anchorMin = new Vector2(0.5f, 0f);
+    towerInfoRect.anchorMax = new Vector2(0.5f, 0f);
+    towerInfoRect.pivot = new Vector2(0.5f, 0f);
+    towerInfoRect.anchoredPosition = new Vector2(0f, 20f);
+    towerInfoRect.sizeDelta = new Vector2(250f, 140f);
+
+    Image bgImage = towerInfoPanel.AddComponent<Image>();
+    bgImage.color = new Color(0.08f, 0.10f, 0.15f, 0.94f);
+    bgImage.raycastTarget = false;
+
+    GameObject headerObj = new GameObject("Header");
+    RectTransform headerRect = headerObj.AddComponent<RectTransform>();
+    headerRect.SetParent(towerInfoRect, false);
+    headerRect.anchorMin = new Vector2(0f, 1f);
+    headerRect.anchorMax = new Vector2(1f, 1f);
+    headerRect.pivot = new Vector2(0.5f, 1f);
+    headerRect.anchoredPosition = Vector2.zero;
+    headerRect.sizeDelta = new Vector2(0f, 28f);
+
+    Image headerImage = headerObj.AddComponent<Image>();
+    headerImage.color = new Color(0.12f, 0.45f, 0.68f, 1f);
+    headerImage.raycastTarget = false;
+
+    GameObject headerTextObj = new GameObject("HeaderText");
+    Text headerText = headerTextObj.AddComponent<Text>();
+    headerText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+    headerText.text = "Tower Control";
+    headerText.fontSize = 14;
+    headerText.fontStyle = FontStyle.Bold;
+    headerText.alignment = TextAnchor.MiddleCenter;
+    headerText.color = Color.white;
+    headerText.raycastTarget = false;
+
+    RectTransform headerTextRect = headerTextObj.GetComponent<RectTransform>();
+    headerTextRect.SetParent(headerRect, false);
+    headerTextRect.anchorMin = Vector2.zero;
+    headerTextRect.anchorMax = Vector2.one;
+    headerTextRect.offsetMin = Vector2.zero;
+    headerTextRect.offsetMax = Vector2.zero;
+
+    GameObject textObj = new GameObject("InfoText");
+    towerInfoText = textObj.AddComponent<Text>();
+    towerInfoText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+    towerInfoText.text = "";
+    towerInfoText.fontSize = 13;
+    towerInfoText.alignment = TextAnchor.UpperLeft;
+    towerInfoText.color = new Color(0.92f, 0.96f, 1f, 1f);
+
+    RectTransform textRect = textObj.GetComponent<RectTransform>();
+    textRect.SetParent(towerInfoRect, false);
+    textRect.anchorMin = new Vector2(0f, 0f);
+    textRect.anchorMax = new Vector2(1f, 1f);
+    textRect.offsetMin = new Vector2(12f, 50f);
+    textRect.offsetMax = new Vector2(-12f, -42f);
+
+    towerInfoPanel.SetActive(false);
+}
     public void UpdateCastleHealth(int health, int maxHealth)
     {
         if (castleHealthText != null)
@@ -218,120 +288,36 @@ public class UIManager : MonoBehaviour
             Debug.Log("BuildTowerButton found: " + (buildTowerButton != null), this);
         }
     }
+void HandleClickOutside()
+{
+    if (Mouse.current == null) return;
 
-    void CreateUIIfMissing()
+    if (!Mouse.current.leftButton.wasPressedThisFrame)
+        return;
+
+    Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+
+    if (Physics.Raycast(ray, out RaycastHit hit))
     {
-        if (towerInfoText == null)
+        Tower tower = hit.collider.GetComponent<Tower>();
+
+        if (tower != null)
         {
-            towerInfoPanel = new GameObject("TowerInfoPanel");
-            towerInfoRect = towerInfoPanel.AddComponent<RectTransform>();
-            towerInfoRect.SetParent(canvas.transform, false);
-            towerInfoRect.anchorMin = new Vector2(0, 1);
-            towerInfoRect.anchorMax = new Vector2(0, 1);
-            towerInfoRect.pivot = new Vector2(0, 1);
-            towerInfoRect.anchoredPosition = new Vector2(16f, -16f);
-            towerInfoRect.sizeDelta = new Vector2(250f, 140f);
-
-            Image bgImage = towerInfoPanel.AddComponent<Image>();
-            bgImage.color = new Color(0.08f, 0.10f, 0.15f, 0.94f);
-            bgImage.raycastTarget = false;
-
-            GameObject headerObj = new GameObject("Header");
-            RectTransform headerRect = headerObj.AddComponent<RectTransform>();
-            headerRect.SetParent(towerInfoRect, false);
-            headerRect.anchorMin = new Vector2(0f, 1f);
-            headerRect.anchorMax = new Vector2(1f, 1f);
-            headerRect.pivot = new Vector2(0.5f, 1f);
-            headerRect.anchoredPosition = Vector2.zero;
-            headerRect.sizeDelta = new Vector2(0f, 28f);
-
-            Image headerImage = headerObj.AddComponent<Image>();
-            headerImage.color = new Color(0.12f, 0.45f, 0.68f, 1f);
-            headerImage.raycastTarget = false;
-
-            GameObject headerTextObj = new GameObject("HeaderText");
-            Text headerText = headerTextObj.AddComponent<Text>();
-            headerText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            headerText.text = "Tower Control";
-            headerText.fontSize = 14;
-            headerText.fontStyle = FontStyle.Bold;
-            headerText.alignment = TextAnchor.MiddleCenter;
-            headerText.color = Color.white;
-            headerText.raycastTarget = false;
-
-            RectTransform headerTextRect = headerTextObj.GetComponent<RectTransform>();
-            headerTextRect.SetParent(headerRect, false);
-            headerTextRect.anchorMin = Vector2.zero;
-            headerTextRect.anchorMax = Vector2.one;
-            headerTextRect.offsetMin = Vector2.zero;
-            headerTextRect.offsetMax = Vector2.zero;
-
-            GameObject textObj = new GameObject("InfoText");
-            towerInfoText = textObj.AddComponent<Text>();
-            towerInfoText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            towerInfoText.text = "";
-            towerInfoText.fontSize = 13;
-            towerInfoText.fontStyle = FontStyle.Normal;
-            towerInfoText.alignment = TextAnchor.UpperLeft;
-            towerInfoText.color = new Color(0.92f, 0.96f, 1f, 1f);
-            towerInfoText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            towerInfoText.verticalOverflow = VerticalWrapMode.Truncate;
-            towerInfoText.raycastTarget = false;
-
-            RectTransform textRect = textObj.GetComponent<RectTransform>();
-            textRect.SetParent(towerInfoRect, false);
-            textRect.anchorMin = new Vector2(0f, 0f);
-            textRect.anchorMax = new Vector2(1f, 1f);
-            textRect.offsetMin = new Vector2(12f, 50f);
-            textRect.offsetMax = new Vector2(-12f, -42f);
-
-            towerInfoPanel.SetActive(false);
-        }
-
-        if (upgradeDamageButton == null)
-        {
-            upgradeDamageButton = CreateUpgradeButton("DamageUpgradeBtn", "⚔\n50g", new Vector2(10f, -70f));
-            upgradeDamageButton.onClick.AddListener(UpgradeDamage);
-            upgradeDamageRect = upgradeDamageButton.GetComponent<RectTransform>();
-            upgradeDamageButton.gameObject.SetActive(false);
-        }
-
-        if (upgradeRangeButton == null)
-        {
-            upgradeRangeButton = CreateUpgradeButton("RangeUpgradeBtn", "🎯\n50g", new Vector2(98f, -70f));
-            upgradeRangeButton.onClick.AddListener(UpgradeRange);
-            upgradeRangeRect = upgradeRangeButton.GetComponent<RectTransform>();
-            upgradeRangeButton.gameObject.SetActive(false);
-        }
-
-        if (upgradeFireRateButton == null)
-        {
-            upgradeFireRateButton = CreateUpgradeButton("FireRateUpgradeBtn", "🔥\n50g", new Vector2(186f, -70f));
-            upgradeFireRateButton.onClick.AddListener(UpgradeFireRate);
-            upgradeFireRateRect = upgradeFireRateButton.GetComponent<RectTransform>();
-            upgradeFireRateButton.gameObject.SetActive(false);
-        }
-    }
-
-    void Update()
-    {
-        if (selectedTower == null || towerInfoRect == null || mainCamera == null) return;
-
-        Vector3 screenPos = mainCamera.WorldToScreenPoint(selectedTower.transform.position + Vector3.up * 2.5f);
-        if (screenPos.z <= 0)
-        {
-            if (towerInfoPanel != null)
-                towerInfoPanel.SetActive(false);
-            SetUpgradeButtonsActive(false);
+            SelectTower(tower);
             return;
         }
-
-        if (towerInfoPanel != null)
-        {
-            towerInfoPanel.SetActive(true);
-            towerInfoRect.position = screenPos + new Vector3(0f, 110f, 0f);
-        }
     }
+
+    if (selectedTower != null)
+    {
+        DeselectTower();
+    }
+}
+    void Update()
+    {
+        HandleClickOutside();
+    }
+
 
     Button CreateUpgradeButton(string name, string label, Vector2 position)
     {
@@ -410,6 +396,7 @@ public class UIManager : MonoBehaviour
         PlaceText(text, anchoredPosition, TextAnchor.UpperLeft);
     }
 
+
     void PlaceText(Text text, Vector2 anchoredPosition, TextAnchor alignment)
     {
         if (text == null) return;
@@ -447,8 +434,10 @@ public class UIManager : MonoBehaviour
     }
 
     public void SelectTower(Tower tower)
-    {Debug.Log("Tower selected: " + (tower != null ? tower.name : "null"), this);
-        
+    {
+        Debug.Log("Tower selected: " + (tower != null ? tower.name : "null"), this);
+
+
         selectedTower = tower;
         UpdateTowerInfo();
     }

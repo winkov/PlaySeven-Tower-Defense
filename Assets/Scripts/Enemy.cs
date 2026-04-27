@@ -111,7 +111,7 @@ public class Enemy : MonoBehaviour
     {
         if (healthBarCanvasObj != null)
         {
-            Destroy(healthBarCanvasObj);
+            CreateHealthBar();
         }
 
         healthBarCanvasObj = new GameObject("HealthBarCanvas");
@@ -131,7 +131,7 @@ public class Enemy : MonoBehaviour
         canvasRect.sizeDelta = new Vector2(1.4f, 0.35f);
         canvasRect.localPosition = new Vector3(0f, 1.4f, 0f);
         canvasRect.localRotation = Quaternion.identity;
-        canvasRect.localScale = Vector3.one * 0.2f;
+        canvasRect.localScale = Vector3.one * 0.35f;
 
         GameObject bg = new GameObject("HealthBarBg");
         bg.transform.SetParent(healthBarCanvasObj.transform, false);

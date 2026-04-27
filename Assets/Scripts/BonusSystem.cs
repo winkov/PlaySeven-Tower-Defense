@@ -12,6 +12,7 @@ public class BonusSystem : MonoBehaviour
         gameManager = FindAnyObjectByType<GameManager>();
     }
 
+
     public void ApplyBonus()
     {
         if (gameManager != null)

@@ -14,6 +14,7 @@ public class Projectile : MonoBehaviour
         transform.localScale = Vector3.one * visibleScale;
     }
 
+
     public void SetTarget(Enemy enemy, int projectileDamage)
     {
         target = enemy;
