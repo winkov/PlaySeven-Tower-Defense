@@ -3,18 +3,26 @@ using UnityEngine;
 public class BuildSpot : MonoBehaviour
 {
     public GameObject towerPrefab;
+    public GameObject mageTowerPrefab;
+    public GameObject archerTowerPrefab;
+    public GameObject catapultTowerPrefab;
+    public GameObject barracksTowerPrefab;
     public int buildCost = 50;
     public Color availableColor = new Color(0.45f, 0.62f, 0.45f);
     public Color occupiedColor = new Color(0.35f, 0.35f, 0.35f);
 
     private GameManager gameManager;
     private bool hasTower;
+    private bool previewSelected;
     private Renderer spotRenderer;
     private Tower builtTower;
 
     void Start()
     {
         gameManager = FindAnyObjectByType<GameManager>();
+#if UNITY_EDITOR
+        AutoAssignTowerPrefabsInEditor();
+#endif
         spotRenderer = GetComponent<Renderer>();
         Collider collider = GetComponent<Collider>();
         if (collider == null)
@@ -55,10 +63,12 @@ public class BuildSpot : MonoBehaviour
     {
         Vector3 towerPosition = transform.position;
         GameObject towerObject;
+        GameObject selectedPrefab = GetTowerPrefabByType(towerType);
 
-        if (towerPrefab != null)
+        if (selectedPrefab != null)
         {
-            towerObject = Instantiate(towerPrefab, towerPosition + Vector3.up * 0.6f, Quaternion.identity);
+            towerObject = Instantiate(selectedPrefab, towerPosition + Vector3.up * 0.15f, Quaternion.identity);
+            towerObject.transform.localScale = Vector3.one * 0.42f;
         }
         else
         {
@@ -66,7 +76,7 @@ public class BuildSpot : MonoBehaviour
             towerObject.transform.position = towerPosition + Vector3.up * 0.05f;
         }
 
-        Transform firePoint = CreateVisualByType(towerObject.transform, towerType);
+        Transform firePoint = selectedPrefab == null ? CreateVisualByType(towerObject.transform, towerType) : FindFirePointFromPrefab(towerObject.transform);
         builtTower = towerObject.GetComponent<Tower>();
         if (builtTower == null) builtTower = towerObject.AddComponent<Tower>();
         builtTower.firePoint = firePoint;
@@ -74,6 +84,38 @@ public class BuildSpot : MonoBehaviour
         builtTower.ConfigureByType(towerType);
         EnsureTowerSelectionCollider(towerObject);
     }
+
+    GameObject GetTowerPrefabByType(TowerType towerType)
+    {
+        if (towerType == TowerType.Mage) return mageTowerPrefab != null ? mageTowerPrefab : towerPrefab;
+        if (towerType == TowerType.Archer) return archerTowerPrefab != null ? archerTowerPrefab : towerPrefab;
+        if (towerType == TowerType.Catapult) return catapultTowerPrefab != null ? catapultTowerPrefab : towerPrefab;
+        return barracksTowerPrefab != null ? barracksTowerPrefab : towerPrefab;
+    }
+
+    Transform FindFirePointFromPrefab(Transform root)
+    {
+        Transform[] children = root.GetComponentsInChildren<Transform>();
+        for (int i = 0; i < children.Length; i++)
+        {
+            string n = children[i].name.ToLowerInvariant();
+            if (n.Contains("muzzle") || n.Contains("fire") || n.Contains("tip") || n.Contains("head"))
+            {
+                return children[i];
+            }
+        }
+        return root;
+    }
+
+#if UNITY_EDITOR
+    void AutoAssignTowerPrefabsInEditor()
+    {
+        if (mageTowerPrefab == null) mageTowerPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/TowerDefenceAssets/Prefabs/Towers/Tower_11.prefab");
+        if (archerTowerPrefab == null) archerTowerPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/TowerDefenceAssets/Prefabs/Towers/Tower_2.prefab");
+        if (catapultTowerPrefab == null) catapultTowerPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/TowerDefenceAssets/Prefabs/Towers/Tower_14.prefab");
+        if (barracksTowerPrefab == null) barracksTowerPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/TowerDefenceAssets/Prefabs/Towers/Tower_6.prefab");
+    }
+#endif
 
     Transform CreateVisualByType(Transform root, TowerType type)
     {
@@ -122,7 +164,20 @@ public class BuildSpot : MonoBehaviour
     void UpdateVisual()
     {
         if (spotRenderer == null) return;
+        if (previewSelected && !hasTower)
+        {
+            spotRenderer.material.color = new Color(0.9f, 0.85f, 0.25f);
+            transform.localScale = new Vector3(1.5f, 0.06f, 1.5f);
+            return;
+        }
+        transform.localScale = new Vector3(1.35f, 0.06f, 1.35f);
         spotRenderer.material.color = hasTower ? occupiedColor : availableColor;
+    }
+
+    public void SetBuildPreviewSelected(bool selected)
+    {
+        previewSelected = selected;
+        UpdateVisual();
     }
 
     void EnsureTowerSelectionCollider(GameObject towerObject)

@@ -197,6 +197,7 @@ public class Tower : MonoBehaviour
         upgradeDamageLevel++;
         damage = baseDamage + (upgradeDamageLevel * (towerType == TowerType.Archer ? 2 : towerType == TowerType.Catapult ? 8 : 5));
         if (towerType == TowerType.Barracks) armor = baseArmor + upgradeDamageLevel * 2;
+        ApplyUpgradeScaleVisual();
         return true;
     }
 
@@ -207,6 +208,7 @@ public class Tower : MonoBehaviour
         upgradeRangeLevel++;
         range = baseRange + (upgradeRangeLevel * (towerType == TowerType.Barracks ? 0.35f : towerType == TowerType.Catapult ? 0.75f : 0.9f));
         if (towerType == TowerType.Catapult || towerType == TowerType.Mage) splashRadius = baseSplashRadius + (upgradeRangeLevel * 0.25f);
+        ApplyUpgradeScaleVisual();
         return true;
     }
 
@@ -216,7 +218,23 @@ public class Tower : MonoBehaviour
         GameManager.Instance.AddGold(-upgradeFireRateCost);
         upgradeFireRateLevel++;
         fireRate = baseFireRate + (upgradeFireRateLevel * (towerType == TowerType.Catapult ? 0.09f : towerType == TowerType.Archer ? 0.22f : 0.18f));
+        ApplyUpgradeScaleVisual();
         return true;
+    }
+
+    void ApplyUpgradeScaleVisual()
+    {
+        float levelFactor = (upgradeDamageLevel + upgradeRangeLevel + upgradeFireRateLevel) * 0.015f;
+        transform.localScale = Vector3.one * (1f + Mathf.Clamp(levelFactor, 0f, 0.25f));
+    }
+
+    public void PlayUpgradeFeedback(Color glowColor)
+    {
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            renderers[i].material.color = Color.Lerp(renderers[i].material.color, glowColor, 0.35f);
+        }
     }
 }
 

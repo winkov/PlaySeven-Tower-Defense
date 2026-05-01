@@ -8,6 +8,9 @@
 
 .vs/
 .vscode/
+.idea/
+.DS_Store
+Thumbs.db
 *.csproj
 *.sln
 *.slnx

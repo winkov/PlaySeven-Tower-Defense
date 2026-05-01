@@ -420,6 +420,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BonusSystem
   goldBonus: 20
   damageMultiplier: 1.1
+  fireRateMultiplier: 1.08
+  castleHeal: 2
 --- !u!114 &305096272
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -432,12 +434,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fea21b83687a87245848651d7181aa40, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WaveManager
-  enemyPrefab: {fileID: 0}
+  enemyPrefab: {fileID: 1022148595836406, guid: 5b5b1958cdf88ce49989e326859b9572, type: 3}
   spawnPoint: {fileID: 0}
-  enemiesPerWave: 05000000080000000c0000001000000014000000
+  wavesPerStage: 10
+  baseEnemies: 5
   spawnDelay: 0.75
+  minSpawnDelay: 0.5
   enemyHealthMultiplierPerWave: 1.25
+  enemyHealthMultiplierPerStage: 1.15
   enemySpeedBonusPerWave: 0.15
+  enemySpeedBonusPerStage: 0.18
+  autoWaveDelay: 6
   debugLogs: 1
 --- !u!114 &305096273
 MonoBehaviour:
@@ -518,17 +525,17 @@ MonoBehaviour:
   createEnvironmentProps: 1
   pathWidth: 1.6
   pathHeight: 0.06
-  castleSize: 2.2
   treesPerPathSegment: 2
   rocksPerPathSegment: 1
   groundColor: {r: 0.18, g: 0.55, b: 0.32, a: 1}
-  pathColor: {r: 0.55, g: 0.34, b: 0.16, a: 1}
-  castleColor: {r: 0.45, g: 0.35, b: 0.65, a: 1}
   waypointColor: {r: 1, g: 0.75, b: 0.1, a: 1}
-  treeTrunkColor: {r: 0.35, g: 0.18, b: 0.08, a: 1}
-  treeLeafColor: {r: 0.08, g: 0.36, b: 0.13, a: 1}
-  rockColor: {r: 0.42, g: 0.42, b: 0.4, a: 1}
-  roofColor: {r: 0.26, g: 0.16, b: 0.45, a: 1}
+  treePrefabOverride: {fileID: 1454367513827238, guid: 13163dec39deaa547890ea523fe21b67, type: 3}
+  rockPrefabOverride: {fileID: 1145514992741038, guid: bb4c2603a8afa814b9cf9f292187afdc, type: 3}
+  groundTilePrefab: {fileID: 0}
+  castlePrefab: {fileID: 0}
+  pathMaterialOverride: {fileID: 0}
+  castleMaterialOverride: {fileID: 0}
+  rockMaterialOverride: {fileID: 0}
 --- !u!1 &333101244
 GameObject:
   m_ObjectHideFlags: 0
@@ -938,6 +945,7 @@ MonoBehaviour:
   - {fileID: 963928006}
   pathColor: {r: 0, g: 1, b: 1, a: 1}
   gizmoSphereSize: 0.35
+  randomSeed: 0
 --- !u!1 &911404476
 GameObject:
   m_ObjectHideFlags: 0
@@ -2118,8 +2126,8 @@ MonoBehaviour:
   castleHealthText: {fileID: 1250436237}
   waveText: {fileID: 1408291512}
   messageText: {fileID: 911404477}
+  autoWaveText: {fileID: 0}
   startWaveButton: {fileID: 1812822913}
-  buildTowerButton: {fileID: 167475071}
   autoLayout: 1
   towerInfoText: {fileID: 0}
   upgradeDamageButton: {fileID: 0}

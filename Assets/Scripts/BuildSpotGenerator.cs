@@ -4,8 +4,8 @@ public class BuildSpotGenerator : MonoBehaviour
 {
     public GameObject buildSpotPrefab;
     public GameObject towerPrefab;
-    public float sideOffset = 2.5f;
-    public float spotScale = 0.85f;
+    public float sideOffset = 3.8f;
+    public float spotScale = 1.35f;
     public int buildCost = 50;
     public bool generateOnStart = true;
 
@@ -49,7 +49,7 @@ public class BuildSpotGenerator : MonoBehaviour
 
     void CreateBuildSpot(Vector3 position, string spotName)
     {
-        position.y = 0.05f;
+        position.y = 0.08f;
 
         GameObject spotObject;
 
@@ -61,7 +61,7 @@ public class BuildSpotGenerator : MonoBehaviour
         {
             spotObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             spotObject.transform.position = position;
-            spotObject.transform.localScale = new Vector3(spotScale, 0.08f, spotScale);
+            spotObject.transform.localScale = new Vector3(spotScale, 0.09f, spotScale);
 
             Renderer spotRenderer = spotObject.GetComponent<Renderer>();
             if (spotRenderer != null)

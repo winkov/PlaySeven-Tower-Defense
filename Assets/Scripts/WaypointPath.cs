@@ -43,10 +43,10 @@ public class WaypointPath : MonoBehaviour
             Destroy(transform.GetChild(i).gameObject);
         }
 
-        int waypointCount = Mathf.Clamp(5 + stage, 5, 9);
-        float length = 22f + stage * 2f;
+        int waypointCount = Mathf.Clamp(8 + stage, 8, 12);
+        float length = 24f + stage * 2f;
         float zStep = length / (waypointCount - 1);
-        float maxX = Mathf.Min(4f + stage * 0.8f, 9f);
+        float maxX = Mathf.Min(5.2f + stage * 0.5f, 8.6f);
 
         for (int i = 0; i < waypointCount; i++)
         {
@@ -54,7 +54,14 @@ public class WaypointPath : MonoBehaviour
             wp.transform.SetParent(transform);
 
             float z = i * zStep;
-            float x = i == 0 || i == waypointCount - 1 ? 0f : Random.Range(-maxX, maxX);
+            float x;
+            if (i == 0) x = 0f;
+            else if (i == waypointCount - 1) x = 0f;
+            else
+            {
+                float side = i % 2 == 0 ? 1f : -1f;
+                x = side * Random.Range(maxX * 0.55f, maxX);
+            }
             wp.transform.position = new Vector3(x, 0f, z);
         }
 

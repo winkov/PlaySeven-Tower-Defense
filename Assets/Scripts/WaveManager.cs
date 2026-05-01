@@ -13,6 +13,7 @@ public class WaveManager : MonoBehaviour
     public float enemyHealthMultiplierPerStage = 1.15f;
     public float enemySpeedBonusPerWave = 0.09f;
     public float enemySpeedBonusPerStage = 0.18f;
+    public float autoWaveDelay = 6f;
     public bool debugLogs = true;
 
     private int currentWaveInStage;
@@ -26,12 +27,17 @@ public class WaveManager : MonoBehaviour
     private bool waitingBonusChoice;
     private int enemiesSpawnedThisWave;
     private int enemiesToSpawnThisWave;
+    private float autoWaveTimer;
+    private bool firstWaveStarted;
 
     public int CurrentWaveDisplay { get { return currentWaveInStage + 1; } }
     public bool WaveRunning { get { return waveRunning; } }
 
     void Start()
     {
+#if UNITY_EDITOR
+        AutoAssignEnemyPrefabInEditor();
+#endif
         bonusSystem = FindAnyObjectByType<BonusSystem>();
         uiManager = FindAnyObjectByType<UIManager>();
         waypointPath = FindAnyObjectByType<WaypointPath>();
@@ -50,9 +56,23 @@ public class WaveManager : MonoBehaviour
         RefreshUI();
     }
 
+#if UNITY_EDITOR
+    void AutoAssignEnemyPrefabInEditor()
+    {
+        if (enemyPrefab == null)
+        {
+            enemyPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Meshtint Free Toon Assets/Knight/Prefabs/Meshtint Free Knight.prefab");
+        }
+    }
+#endif
+
     void Update()
     {
-        if (!waveRunning) return;
+        if (!waveRunning)
+        {
+            HandleAutoWaveTimer();
+            return;
+        }
         if (enemiesSpawnedThisWave < enemiesToSpawnThisWave) return;
 
         Enemy[] alive = FindObjectsByType<Enemy>();
@@ -60,6 +80,20 @@ public class WaveManager : MonoBehaviour
         {
             aliveEnemies = 0;
             OnEnemyDied();
+        }
+    }
+
+    void HandleAutoWaveTimer()
+    {
+        if (uiManager != null) uiManager.UpdateAutoWaveCountdown(autoWaveTimer, !firstWaveStarted);
+        if (!firstWaveStarted) return;
+        if (waitingBonusChoice) return;
+        if (GameManager.Instance != null && GameManager.Instance.IsGameOver) return;
+
+        autoWaveTimer -= Time.deltaTime;
+        if (autoWaveTimer <= 0f)
+        {
+            StartNextWave();
         }
     }
 
@@ -84,6 +118,8 @@ public class WaveManager : MonoBehaviour
             return;
         }
 
+        firstWaveStarted = true;
+        autoWaveTimer = autoWaveDelay;
         StartCoroutine(SpawnWave());
     }
 
@@ -189,6 +225,7 @@ public class WaveManager : MonoBehaviour
             }
             else
             {
+                autoWaveTimer = autoWaveDelay;
                 RefreshUI();
             }
 
