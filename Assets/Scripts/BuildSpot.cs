@@ -8,14 +8,18 @@ public class BuildSpot : MonoBehaviour
     public GameObject catapultTowerPrefab;
     public GameObject barracksTowerPrefab;
     public int buildCost = 50;
-    public Color availableColor = new Color(0.45f, 0.62f, 0.45f);
-    public Color occupiedColor = new Color(0.35f, 0.35f, 0.35f);
+    public Color availableColor = new Color(0.72f, 0.78f, 0.58f);
+    public Color occupiedColor = new Color(0.36f, 0.34f, 0.3f);
 
     private GameManager gameManager;
     private bool hasTower;
     private bool previewSelected;
     private Renderer spotRenderer;
     private Tower builtTower;
+    private Transform ringVisual;
+    private Transform baseVisual;
+    private Renderer ringRenderer;
+    private Renderer baseRenderer;
 
     void Start()
     {
@@ -28,8 +32,9 @@ public class BuildSpot : MonoBehaviour
         if (collider == null)
         {
             BoxCollider box = gameObject.AddComponent<BoxCollider>();
-            box.size = new Vector3(1f, 0.1f, 1f);
+            box.size = new Vector3(1.8f, 0.25f, 1.8f);
         }
+        CreateSpotVisuals();
         UpdateVisual();
     }
 
@@ -67,13 +72,13 @@ public class BuildSpot : MonoBehaviour
 
         if (selectedPrefab != null)
         {
-            towerObject = Instantiate(selectedPrefab, towerPosition + Vector3.up * 0.15f, Quaternion.identity);
-            towerObject.transform.localScale = Vector3.one * 0.42f;
+            towerObject = Instantiate(selectedPrefab, towerPosition + Vector3.up * 0.8f, Quaternion.identity);
+            towerObject.transform.localScale = Vector3.one * 0.56f;
         }
         else
         {
             towerObject = new GameObject("Runtime Tower");
-            towerObject.transform.position = towerPosition + Vector3.up * 0.05f;
+            towerObject.transform.position = towerPosition + Vector3.up * 0.5f;
         }
 
         Transform firePoint = selectedPrefab == null ? CreateVisualByType(towerObject.transform, towerType) : FindFirePointFromPrefab(towerObject.transform);
@@ -161,17 +166,65 @@ public class BuildSpot : MonoBehaviour
         return go;
     }
 
+    void CreateSpotVisuals()
+    {
+        if (transform.Find("PedestalBase") == null)
+        {
+            GameObject pedestal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pedestal.name = "PedestalBase";
+            pedestal.transform.SetParent(transform, false);
+            pedestal.transform.localPosition = new Vector3(0f, -0.02f, 0f);
+            pedestal.transform.localScale = new Vector3(1.45f, 0.18f, 1.45f);
+            Collider collider = pedestal.GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+            baseRenderer = pedestal.GetComponent<Renderer>();
+            baseVisual = pedestal.transform;
+        }
+        else
+        {
+            baseVisual = transform.Find("PedestalBase");
+            baseRenderer = baseVisual.GetComponent<Renderer>();
+        }
+
+        if (transform.Find("PedestalRing") == null)
+        {
+            GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "PedestalRing";
+            ring.transform.SetParent(transform, false);
+            ring.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+            ring.transform.localScale = new Vector3(1.08f, 0.06f, 1.08f);
+            Collider collider = ring.GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+            ringRenderer = ring.GetComponent<Renderer>();
+            ringVisual = ring.transform;
+        }
+        else
+        {
+            ringVisual = transform.Find("PedestalRing");
+            ringRenderer = ringVisual.GetComponent<Renderer>();
+        }
+    }
+
     void UpdateVisual()
     {
-        if (spotRenderer == null) return;
+        if (spotRenderer == null && baseRenderer == null && ringRenderer == null) return;
+
+        Color topColor = hasTower ? occupiedColor : availableColor;
+        Color ringColor = hasTower ? new Color(0.28f, 0.26f, 0.24f) : new Color(0.88f, 0.82f, 0.52f);
+        Vector3 scale = new Vector3(1.65f, 0.12f, 1.65f);
+
         if (previewSelected && !hasTower)
         {
-            spotRenderer.material.color = new Color(0.9f, 0.85f, 0.25f);
-            transform.localScale = new Vector3(1.5f, 0.06f, 1.5f);
-            return;
+            topColor = new Color(1f, 0.87f, 0.24f);
+            ringColor = new Color(1f, 0.94f, 0.62f);
+            scale = new Vector3(1.82f, 0.12f, 1.82f);
         }
-        transform.localScale = new Vector3(1.35f, 0.06f, 1.35f);
-        spotRenderer.material.color = hasTower ? occupiedColor : availableColor;
+
+        transform.localScale = scale;
+        if (spotRenderer != null) spotRenderer.material.color = topColor;
+        if (baseRenderer != null) baseRenderer.material.color = new Color(0.41f, 0.35f, 0.24f);
+        if (ringRenderer != null) ringRenderer.material.color = ringColor;
+        if (ringVisual != null) ringVisual.localScale = previewSelected && !hasTower ? new Vector3(1.18f, 0.06f, 1.18f) : new Vector3(1.08f, 0.06f, 1.08f);
     }
 
     public void SetBuildPreviewSelected(bool selected)

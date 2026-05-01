@@ -23,6 +23,10 @@ public class Enemy : MonoBehaviour
     private Transform rightLeg;
     private float walkAnimTimer;
     private Vector3 baseScale;
+    private float flightHeight;
+    private float healthBarHideAt;
+    private float stuckTimer;
+    private Vector3 lastPosition;
 
     void Start()
     {
@@ -30,17 +34,50 @@ public class Enemy : MonoBehaviour
         waypointPath = FindAnyObjectByType<WaypointPath>();
         waveManager = FindAnyObjectByType<WaveManager>();
         mainCamera = Camera.main;
+
+        if (waypointPath == null)
+        {
+            Debug.LogError("Enemy: WaypointPath not found!", this);
+        }
+
+        speed = 5.5f;
+
+        Animator animator = GetComponent<Animator>();
+        if (animator != null) animator.applyRootMotion = false;
+
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.constraints = RigidbodyConstraints.None;
+        }
+
+        CharacterController controller = GetComponent<CharacterController>();
+        if (controller != null) controller.enabled = false;
+
+        Behaviour navAgent = GetComponent("NavMeshAgent") as Behaviour;
+        if (navAgent != null) navAgent.enabled = false;
+
         meshRenderer = GetComponent<Renderer>();
         ApplyVisualByType(enemyType);
+
+        InitializePathProgress();
+
+        lastPosition = transform.position;
+
         CreateHealthBar();
         UpdateHealthBar();
+
         baseScale = transform.localScale;
     }
 
     void Update()
     {
         if (waypointPath == null || waypointPath.Count == 0) return;
+
         MoveAlongPath();
+        HandleStuckFallback();
         AnimateWalk();
     }
 
@@ -49,6 +86,7 @@ public class Enemy : MonoBehaviour
         if (healthBarCanvasObj != null && mainCamera != null)
         {
             healthBarCanvasObj.transform.forward = mainCamera.transform.forward;
+            healthBarCanvasObj.SetActive(Time.time < healthBarHideAt);
         }
     }
 
@@ -59,9 +97,12 @@ public class Enemy : MonoBehaviour
         maxHealth = EnemyTypeHelper.GetMaxHealth(type);
         currentHealth = maxHealth;
         goldValue = EnemyTypeHelper.GetGoldValue(type);
+        flightHeight = type == EnemyTypeEnum.Flying ? 1.6f : 0f;
+
         ApplyVisualByType(type);
         CreateHealthBar();
         UpdateHealthBar();
+
         baseScale = transform.localScale;
     }
 
@@ -69,6 +110,7 @@ public class Enemy : MonoBehaviour
     {
         if (meshRenderer == null) meshRenderer = GetComponent<Renderer>();
         if (meshRenderer != null) meshRenderer.material.color = EnemyTypeHelper.GetColor(type);
+
         transform.localScale = Vector3.one * EnemyTypeHelper.GetScale(type) * 1.2f;
 
         if (transform.Find("Body") == null)
@@ -78,8 +120,10 @@ public class Enemy : MonoBehaviour
             body.transform.SetParent(transform, false);
             body.transform.localPosition = new Vector3(0f, 0.7f, 0f);
             body.transform.localScale = new Vector3(0.55f, 0.8f, 0.45f);
+
             Collider bc = body.GetComponent<Collider>();
             if (bc != null) Destroy(bc);
+
             Renderer br = body.GetComponent<Renderer>();
             if (br != null) br.material.color = new Color(0.15f, 0.15f, 0.18f);
 
@@ -100,19 +144,25 @@ public class Enemy : MonoBehaviour
         leg.transform.SetParent(transform, false);
         leg.transform.localPosition = localPos;
         leg.transform.localScale = new Vector3(0.14f, 0.5f, 0.14f);
+
         Collider c = leg.GetComponent<Collider>();
         if (c != null) Destroy(c);
+
         Renderer r = leg.GetComponent<Renderer>();
         if (r != null) r.material.color = new Color(0.2f, 0.2f, 0.24f);
+
         return leg.transform;
     }
 
     void AnimateWalk()
     {
         walkAnimTimer += Time.deltaTime * (4f + speed * 0.8f);
+
         float swing = Mathf.Sin(walkAnimTimer) * 16f;
         float bob = Mathf.Abs(Mathf.Sin(walkAnimTimer * 0.9f)) * 0.06f;
+
         transform.localScale = baseScale + new Vector3(0f, bob, 0f);
+
         if (leftLeg != null) leftLeg.localRotation = Quaternion.Euler(swing, 0f, 0f);
         if (rightLeg != null) rightLeg.localRotation = Quaternion.Euler(-swing, 0f, 0f);
     }
@@ -127,30 +177,105 @@ public class Enemy : MonoBehaviour
 
     void MoveAlongPath()
     {
+        if (currentWaypointIndex >= waypointPath.Count)
+        {
+            ReachEndOfPath();
+            return;
+        }
+
         Transform targetWaypoint = waypointPath.GetWaypoint(currentWaypointIndex);
         if (targetWaypoint == null) return;
 
-        transform.position = Vector3.MoveTowards(transform.position, targetWaypoint.position, speed * Time.deltaTime);
+        Vector3 targetPos = targetWaypoint.position + Vector3.up * flightHeight;
 
-        Vector3 dir = targetWaypoint.position - transform.position;
-        dir.y = 0f;
-        if (dir.sqrMagnitude > 0.001f)
+        Vector3 direction = (targetPos - transform.position);
+        direction.y = 0f;
+
+        if (direction.magnitude > 0.01f)
         {
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir.normalized), Time.deltaTime * 8f);
+            direction.Normalize();
+            transform.position += direction * speed * Time.deltaTime;
         }
 
-        if (Vector3.Distance(transform.position, targetWaypoint.position) <= 0.05f)
+        if (direction.sqrMagnitude > 0.001f)
+        {
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                Quaternion.LookRotation(direction),
+                Time.deltaTime * 8f
+            );
+        }
+
+        if (Vector3.Distance(transform.position, targetPos) <= 0.25f)
         {
             currentWaypointIndex++;
-            if (currentWaypointIndex >= waypointPath.Count) ReachEndOfPath();
+        }
+    }
+
+    void InitializePathProgress()
+    {
+        if (waypointPath == null || waypointPath.Count == 0) return;
+
+        float bestDistance = float.MaxValue;
+        int closestIndex = 0;
+
+        for (int i = 0; i < waypointPath.Count; i++)
+        {
+            Transform wp = waypointPath.GetWaypoint(i);
+            if (wp == null) continue;
+
+            float dist = Vector3.Distance(transform.position, wp.position);
+            if (dist < bestDistance)
+            {
+                bestDistance = dist;
+                closestIndex = i;
+            }
+        }
+
+        currentWaypointIndex = Mathf.Clamp(closestIndex + 1, 0, waypointPath.Count - 1);
+    }
+
+    public void InitializePath(WaypointPath path, int startWaypointIndex)
+    {
+        waypointPath = path;
+        currentWaypointIndex = Mathf.Clamp(startWaypointIndex, 0, path.Count - 1);
+        lastPosition = transform.position;
+        stuckTimer = 0f;
+    }
+
+    void HandleStuckFallback()
+    {
+        float moved = Vector3.Distance(transform.position, lastPosition);
+
+        if (moved < 0.02f) stuckTimer += Time.deltaTime;
+        else stuckTimer = 0f;
+
+        lastPosition = transform.position;
+
+        if (stuckTimer > 0.75f)
+        {
+            Transform target = waypointPath.GetWaypoint(currentWaypointIndex);
+            if (target != null)
+            {
+                Vector3 dir = target.position - transform.position;
+                dir.y = 0f;
+
+                if (dir.sqrMagnitude > 0.001f)
+                {
+                    transform.position += dir.normalized * 0.25f;
+                }
+            }
+            stuckTimer = 0f;
         }
     }
 
     void CreateHealthBar()
     {
         if (healthBarCanvasObj != null) Destroy(healthBarCanvasObj);
+
         healthBarCanvasObj = new GameObject("HealthBarCanvas");
         healthBarCanvasObj.transform.SetParent(transform, false);
+
         Canvas canvas = healthBarCanvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
         canvas.overrideSorting = true;
@@ -163,8 +288,10 @@ public class Enemy : MonoBehaviour
 
         GameObject bg = new GameObject("HealthBarBg");
         bg.transform.SetParent(healthBarCanvasObj.transform, false);
+
         Image bgImage = bg.AddComponent<Image>();
         bgImage.color = new Color(0f, 0f, 0f, 0.86f);
+
         RectTransform bgRect = bg.GetComponent<RectTransform>();
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;
@@ -173,8 +300,10 @@ public class Enemy : MonoBehaviour
 
         GameObject fill = new GameObject("HealthBarFill");
         fill.transform.SetParent(bg.transform, false);
+
         healthBarFill = fill.AddComponent<Image>();
         healthBarFill.color = new Color(0.95f, 0.16f, 0.16f, 1f);
+
         RectTransform fillRect = fill.GetComponent<RectTransform>();
         fillRect.anchorMin = new Vector2(0f, 0f);
         fillRect.anchorMax = new Vector2(0f, 1f);
@@ -184,11 +313,13 @@ public class Enemy : MonoBehaviour
 
         GameObject label = new GameObject("HealthText");
         label.transform.SetParent(healthBarCanvasObj.transform, false);
+
         healthTextLabel = label.AddComponent<Text>();
         healthTextLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         healthTextLabel.fontSize = 20;
         healthTextLabel.alignment = TextAnchor.MiddleCenter;
         healthTextLabel.color = Color.white;
+
         RectTransform labelRect = label.GetComponent<RectTransform>();
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
@@ -199,35 +330,53 @@ public class Enemy : MonoBehaviour
     void UpdateHealthBar()
     {
         if (healthBarFill == null) return;
-        float pct = maxHealth > 0 ? Mathf.Clamp01((float)currentHealth / maxHealth) : 0f;
+
+        float pct = Mathf.Clamp01((float)currentHealth / maxHealth);
+
         RectTransform fillRect = healthBarFill.GetComponent<RectTransform>();
         if (fillRect != null)
         {
             float width = Mathf.Lerp(0f, 179f, pct);
             fillRect.offsetMax = new Vector2(width, -5f);
         }
-        healthBarFill.color = Color.Lerp(new Color(0.55f, 0.04f, 0.04f, 1f), new Color(1f, 0.2f, 0.2f, 1f), pct);
-        if (healthTextLabel != null) healthTextLabel.text = currentHealth + " / " + maxHealth;
+
+        healthBarFill.color = Color.Lerp(
+            new Color(0.55f, 0.04f, 0.04f),
+            new Color(1f, 0.2f, 0.2f),
+            pct
+        );
+
+        if (healthTextLabel != null)
+            healthTextLabel.text = currentHealth + " / " + maxHealth;
+
+        healthBarHideAt = Time.time + 1.2f;
     }
 
     public void TakeDamage(int dmg)
     {
         if (isDead) return;
+
         currentHealth -= dmg;
         UpdateHealthBar();
+        healthBarHideAt = Time.time + 2f;
+
         if (currentHealth <= 0) Die(true);
     }
 
     void ReachEndOfPath()
     {
         if (isDead) return;
-        if (GameManager.Instance != null) GameManager.Instance.DamageCastle(castleDamage);
+
+        if (GameManager.Instance != null)
+            GameManager.Instance.DamageCastle(castleDamage);
+
         Die(false);
     }
 
     void Die(bool giveGold)
     {
         if (isDead) return;
+
         isDead = true;
 
         if (giveGold && GameManager.Instance != null)
@@ -235,7 +384,10 @@ public class Enemy : MonoBehaviour
             GameManager.Instance.AddGold(goldValue);
             ShowGoldPopup("+" + goldValue);
         }
-        if (waveManager != null) waveManager.OnEnemyDied();
+
+        if (waveManager != null)
+            waveManager.OnEnemyDied();
+
         Destroy(gameObject);
     }
 
@@ -243,17 +395,21 @@ public class Enemy : MonoBehaviour
     {
         GameObject popup = new GameObject("GoldPopup");
         popup.transform.position = transform.position + Vector3.up * 2f;
+
         Canvas canvas = popup.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
+
         RectTransform rect = popup.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(2.4f, 0.8f);
         rect.localScale = Vector3.one * 0.02f;
+
         Text label = popup.AddComponent<Text>();
         label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         label.text = text;
         label.fontSize = 64;
         label.alignment = TextAnchor.MiddleCenter;
         label.color = new Color(1f, 0.9f, 0.2f);
+
         Destroy(popup, 0.75f);
     }
 }
