@@ -29,6 +29,8 @@ public class BuildSpotGenerator : MonoBehaviour
             return;
         }
 
+        ClearExistingBuildSpots();
+
         for (int i = 0; i < waypointPath.Count - 1; i++)
         {
             Transform start = waypointPath.GetWaypoint(i);
@@ -78,5 +80,17 @@ public class BuildSpotGenerator : MonoBehaviour
 
         buildSpot.towerPrefab = towerPrefab;
         buildSpot.buildCost = buildCost;
+    }
+
+    void ClearExistingBuildSpots()
+    {
+        BuildSpot[] existingSpots = FindObjectsByType<BuildSpot>();
+        for (int i = 0; i < existingSpots.Length; i++)
+        {
+            if (existingSpots[i] != null)
+            {
+                Destroy(existingSpots[i].gameObject);
+            }
+        }
     }
 }

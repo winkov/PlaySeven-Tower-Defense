@@ -5,25 +5,37 @@ public class WaveManager : MonoBehaviour
 {
     public GameObject enemyPrefab;
     public Transform spawnPoint;
-    public int[] enemiesPerWave = { 5, 8, 12, 16, 20 };
-    public float spawnDelay = 0.75f;
-    public float enemyHealthMultiplierPerWave = 1.20f;
-    public float enemySpeedBonusPerWave = 0.35f;
+    public int wavesPerStage = 10;
+    public int baseEnemies = 5;
+    public float spawnDelay = 1.1f;
+    public float minSpawnDelay = 0.5f;
+    public float enemyHealthMultiplierPerWave = 1.075f;
+    public float enemyHealthMultiplierPerStage = 1.15f;
+    public float enemySpeedBonusPerWave = 0.09f;
+    public float enemySpeedBonusPerStage = 0.18f;
     public bool debugLogs = true;
 
-    private int currentWave;
+    private int currentWaveInStage;
+    private int currentStage = 1;
     private int aliveEnemies;
     private bool waveRunning;
     private BonusSystem bonusSystem;
     private UIManager uiManager;
+    private WaypointPath waypointPath;
+    private BuildSpotGenerator buildSpotGenerator;
+    private bool waitingBonusChoice;
+    private int enemiesSpawnedThisWave;
+    private int enemiesToSpawnThisWave;
 
-    public int CurrentWaveDisplay { get { return currentWave + 1; } }
+    public int CurrentWaveDisplay { get { return currentWaveInStage + 1; } }
     public bool WaveRunning { get { return waveRunning; } }
 
     void Start()
     {
         bonusSystem = FindAnyObjectByType<BonusSystem>();
         uiManager = FindAnyObjectByType<UIManager>();
+        waypointPath = FindAnyObjectByType<WaypointPath>();
+        buildSpotGenerator = FindAnyObjectByType<BuildSpotGenerator>();
         Debug.Log("WaveManager Start - UIManager found: " + (uiManager != null), this);
 
         if (spawnPoint == null)
@@ -36,6 +48,19 @@ public class WaveManager : MonoBehaviour
         }
 
         RefreshUI();
+    }
+
+    void Update()
+    {
+        if (!waveRunning) return;
+        if (enemiesSpawnedThisWave < enemiesToSpawnThisWave) return;
+
+        Enemy[] alive = FindObjectsByType<Enemy>();
+        if (alive.Length == 0 && aliveEnemies > 0)
+        {
+            aliveEnemies = 0;
+            OnEnemyDied();
+        }
     }
 
     public void StartNextWave()
@@ -54,9 +79,8 @@ public class WaveManager : MonoBehaviour
             return;
         }
 
-        if (currentWave >= enemiesPerWave.Length)
+        if (waitingBonusChoice)
         {
-            Debug.Log("All waves are finished.", this);
             return;
         }
 
@@ -66,18 +90,22 @@ public class WaveManager : MonoBehaviour
     IEnumerator SpawnWave()
     {
         waveRunning = true;
-        aliveEnemies = enemiesPerWave[currentWave];
+        int enemiesThisWave = GetEnemiesForCurrentWave();
+        enemiesToSpawnThisWave = enemiesThisWave;
+        enemiesSpawnedThisWave = 0;
+        aliveEnemies = enemiesThisWave;
         RefreshUI();
 
         if (debugLogs)
         {
-            Debug.Log("Starting wave " + CurrentWaveDisplay + " with " + aliveEnemies + " enemies.", this);
+            Debug.Log("Starting Stage " + currentStage + " Wave " + CurrentWaveDisplay + " with " + aliveEnemies + " enemies.", this);
         }
 
-        for (int i = 0; i < enemiesPerWave[currentWave]; i++)
+        for (int i = 0; i < enemiesThisWave; i++)
         {
             SpawnEnemy();
-            yield return new WaitForSeconds(spawnDelay);
+            enemiesSpawnedThisWave++;
+            yield return new WaitForSeconds(GetSpawnDelayForCurrentWave());
         }
     }
 
@@ -118,15 +146,12 @@ public class WaveManager : MonoBehaviour
 
         if (enemy != null)
         {
-            EnemyTypeEnum type = GetEnemyTypeForWave(currentWave);
+            EnemyTypeEnum type = GetEnemyTypeForWave(currentWaveInStage, currentStage);
             enemy.SetEnemyType(type);
 
-            if (currentWave > 0)
-            {
-                float healthMultiplier = Mathf.Pow(enemyHealthMultiplierPerWave, currentWave);
-                float speedBonus = enemySpeedBonusPerWave * currentWave;
-                enemy.ApplyWaveModifiers(healthMultiplier, speedBonus);
-            }
+            float healthMultiplier = Mathf.Pow(enemyHealthMultiplierPerWave, currentWaveInStage) * Mathf.Pow(enemyHealthMultiplierPerStage, currentStage - 1);
+            float speedBonus = (enemySpeedBonusPerWave * currentWaveInStage) + (enemySpeedBonusPerStage * (currentStage - 1));
+            enemy.ApplyWaveModifiers(healthMultiplier, speedBonus);
 
             if (debugLogs)
             {
@@ -144,7 +169,7 @@ public class WaveManager : MonoBehaviour
         if (uiManager != null)
         {
             uiManager.UpdateWave(CurrentWaveDisplay);
-            uiManager.UpdateStartWaveButton(waveRunning, currentWave >= enemiesPerWave.Length);
+            uiManager.UpdateStage(currentStage);
             uiManager.UpdateWaveMessage(waveRunning, aliveEnemies);
         }
     }
@@ -156,38 +181,121 @@ public class WaveManager : MonoBehaviour
         if (aliveEnemies <= 0 && waveRunning)
         {
             waveRunning = false;
-            currentWave++;
-            RefreshUI();
+            currentWaveInStage++;
+
+            if (currentWaveInStage >= wavesPerStage)
+            {
+                AdvanceToNextStage();
+            }
+            else
+            {
+                RefreshUI();
+            }
 
             if (debugLogs)
             {
-                Debug.Log("Wave " + (currentWave) + " completed!", this);
+                Debug.Log("Wave completed. Stage " + currentStage + " Wave " + currentWaveInStage, this);
             }
         }
     }
 
-    EnemyTypeEnum GetEnemyTypeForWave(int wave)
+    void AdvanceToNextStage()
+    {
+        currentStage++;
+        currentWaveInStage = 0;
+
+        waitingBonusChoice = true;
+        if (bonusSystem != null && uiManager != null)
+        {
+            string[] labels = bonusSystem.GetBonusLabels();
+            uiManager.ShowBonusChoices(labels, OnBonusChoiceSelected);
+        }
+        else
+        {
+            OnBonusChoiceSelected(0);
+        }
+
+        GenerateStageMap();
+        RefreshUI();
+
+        if (debugLogs)
+        {
+            Debug.Log("Advanced to Stage " + currentStage + ". New map generated.", this);
+        }
+    }
+
+    void OnBonusChoiceSelected(int index)
+    {
+        if (bonusSystem != null)
+        {
+            bonusSystem.ApplyBonusChoice(index);
+        }
+        waitingBonusChoice = false;
+    }
+
+    void GenerateStageMap()
+    {
+        if (waypointPath != null)
+        {
+            waypointPath.GenerateRandomPath(currentStage);
+        }
+
+        if (buildSpotGenerator != null)
+        {
+            buildSpotGenerator.GenerateBuildSpots();
+        }
+
+        if (spawnPoint == null)
+        {
+            return;
+        }
+
+        if (waypointPath != null && waypointPath.Count > 0)
+        {
+            Transform firstWaypoint = waypointPath.GetWaypoint(0);
+            if (firstWaypoint != null)
+            {
+                spawnPoint.position = firstWaypoint.position;
+            }
+        }
+    }
+
+    int GetEnemiesForCurrentWave()
+    {
+        int stageBonus = (currentStage - 1) * 3;
+        int waveBonus = currentWaveInStage <= 2 ? currentWaveInStage : 2 + ((currentWaveInStage - 2) * 2);
+        return Mathf.Max(1, baseEnemies + stageBonus + waveBonus);
+    }
+
+    float GetSpawnDelayForCurrentWave()
+    {
+        float stageReduction = (currentStage - 1) * 0.05f;
+        float waveReduction = currentWaveInStage * 0.025f;
+        return Mathf.Max(minSpawnDelay, spawnDelay - stageReduction - waveReduction);
+    }
+
+    EnemyTypeEnum GetEnemyTypeForWave(int waveInStage, int stage)
     {
         int random = Random.Range(0, 100);
 
-        if (wave <= 0)
+        if (stage <= 1 && waveInStage <= 1)
         {
-            if (random < 55) return EnemyTypeEnum.Mage;
-            if (random < 90) return EnemyTypeEnum.Archer;
+            if (random < 65) return EnemyTypeEnum.Mage;
+            if (random < 93) return EnemyTypeEnum.Archer;
             return EnemyTypeEnum.Warrior;
         }
 
-        if (wave == 1)
+        if (stage <= 1 && waveInStage <= 3)
+        {
+            if (random < 48) return EnemyTypeEnum.Mage;
+            if (random < 84) return EnemyTypeEnum.Archer;
+            return EnemyTypeEnum.Warrior;
+        }
+
+        if (stage == 2)
         {
             if (random < 30) return EnemyTypeEnum.Mage;
-            if (random < 75) return EnemyTypeEnum.Archer;
-            return EnemyTypeEnum.Warrior;
-        }
-
-        if (wave == 2)
-        {
-            if (random < 20) return EnemyTypeEnum.Mage;
-            if (random < 60) return EnemyTypeEnum.Archer;
+            if (random < 72) return EnemyTypeEnum.Archer;
             return EnemyTypeEnum.Warrior;
         }
 

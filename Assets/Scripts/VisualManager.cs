@@ -15,7 +15,7 @@ public class VisualManager : MonoBehaviour
     public int treesPerPathSegment = 2;
     public int rocksPerPathSegment = 1;
 
-    public Color groundColor = new Color(0.18f, 0.55f, 0.32f);
+    public Color groundColor = new Color(0.16f, 0.44f, 0.24f);
     public Color pathColor = new Color(0.55f, 0.34f, 0.16f);
     public Color castleColor = new Color(0.45f, 0.42f, 0.48f);
     public Color waypointColor = new Color(1f, 0.75f, 0.1f);
@@ -109,6 +109,34 @@ public class VisualManager : MonoBehaviour
         if (renderer != null)
         {
             renderer.material = groundMaterial;
+            renderer.material.SetFloat("_Glossiness", 0.12f);
+        }
+
+        CreateGroundDetail(ground.transform.position, 140);
+    }
+
+    void CreateGroundDetail(Vector3 center, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            GameObject tuft = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            tuft.name = "GrassTuft";
+            tuft.transform.SetParent(visualRoot);
+            tuft.transform.position = new Vector3(
+                center.x + Random.Range(-28f, 28f),
+                0.03f,
+                center.z + Random.Range(-28f, 28f)
+            );
+            float s = Random.Range(0.08f, 0.18f);
+            tuft.transform.localScale = new Vector3(s, Random.Range(0.05f, 0.12f), s);
+            Renderer r = tuft.GetComponent<Renderer>();
+            if (r != null)
+            {
+                float tint = Random.Range(-0.06f, 0.06f);
+                r.material.color = new Color(groundColor.r + tint, groundColor.g + tint, groundColor.b + tint);
+            }
+            Collider c = tuft.GetComponent<Collider>();
+            if (c != null) Destroy(c);
         }
     }
 

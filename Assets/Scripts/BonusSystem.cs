@@ -4,6 +4,8 @@ public class BonusSystem : MonoBehaviour
 {
     public int goldBonus = 20;
     public float damageMultiplier = 1.1f;
+    public float fireRateMultiplier = 1.08f;
+    public int castleHeal = 2;
 
     private GameManager gameManager;
 
@@ -13,17 +15,41 @@ public class BonusSystem : MonoBehaviour
     }
 
 
-    public void ApplyBonus()
+    public string[] GetBonusLabels()
+    {
+        return new string[]
+        {
+            "+Gold " + goldBonus,
+            "+Damage 10%",
+            "+Gold " + castleHeal + " + Fire Rate 8%"
+        };
+    }
+
+    public void ApplyBonusChoice(int index)
     {
         if (gameManager != null)
         {
-            gameManager.AddGold(goldBonus);
+            if (index == 0)
+            {
+                gameManager.AddGold(goldBonus);
+            }
+            else if (index == 2)
+            {
+                gameManager.AddGold(castleHeal);
+            }
         }
 
         Tower[] towers = FindObjectsByType<Tower>();
         foreach (Tower tower in towers)
         {
-            tower.damage = Mathf.RoundToInt(tower.damage * damageMultiplier);
+            if (index == 1)
+            {
+                tower.damage = Mathf.RoundToInt(tower.damage * damageMultiplier);
+            }
+            else if (index == 2)
+            {
+                tower.fireRate *= fireRateMultiplier;
+            }
         }
     }
 }

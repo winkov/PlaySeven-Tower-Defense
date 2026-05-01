@@ -8,7 +8,7 @@ public class BuildSpot : MonoBehaviour
     public Color occupiedColor = new Color(0.35f, 0.35f, 0.35f);
 
     private GameManager gameManager;
-    private bool hasTower = false;
+    private bool hasTower;
     private Renderer spotRenderer;
     private Tower builtTower;
 
@@ -16,73 +16,45 @@ public class BuildSpot : MonoBehaviour
     {
         gameManager = FindAnyObjectByType<GameManager>();
         spotRenderer = GetComponent<Renderer>();
-
-        // Garantir que o BuildSpot tem Collider para receber cliques
-
         Collider collider = GetComponent<Collider>();
         if (collider == null)
         {
-            BoxCollider boxCollider = gameObject.AddComponent<BoxCollider>();
-            boxCollider.size = new Vector3(1f, 0.1f, 1f);
+            BoxCollider box = gameObject.AddComponent<BoxCollider>();
+            box.size = new Vector3(1f, 0.1f, 1f);
         }
-
-
         UpdateVisual();
     }
 
     void OnMouseDown()
     {
-        Debug.Log("BuildSpot clicked! BuildMode: " + (BuildManager.Instance != null ? BuildManager.Instance.IsBuildModeActive : false), this);
-
-
         if (hasTower)
         {
-            if (builtTower != null)
-            {
-                UIManager uiManager = FindAnyObjectByType<UIManager>();
-                if (uiManager != null)
-                {
-                    uiManager.SelectTower(builtTower);
-                }
-            }
+            UIManager ui = FindAnyObjectByType<UIManager>();
+            if (ui != null && builtTower != null) ui.SelectTower(builtTower);
             return;
         }
 
-        if (BuildManager.Instance != null && !BuildManager.Instance.IsBuildModeActive)
+        UIManager manager = FindAnyObjectByType<UIManager>();
+        if (manager != null)
         {
-            Debug.Log("Build mode is not active, cannot build", this);
-            return;
-        }
-
-
-        if (gameManager == null)
-        {
-            Debug.LogWarning("GameManager not found", this);
-            return;
-        }
-
-        if (gameManager.SpendGold(buildCost))
-        {
-            CreateTower();
-            hasTower = true;
-            UpdateVisual();
-
-            if (BuildManager.Instance != null)
-            {
-                BuildManager.Instance.SetBuildMode(false);
-            }
-        }
-        else
-        {
-            Debug.Log("Not enough gold to build tower", this);
+            manager.ShowBuildChoice(this);
         }
     }
 
-    void CreateTower()
+    public void BuildTower(TowerType towerType)
+    {
+        if (hasTower || gameManager == null) return;
+        if (!gameManager.SpendGold(buildCost)) return;
+
+        CreateTower(towerType);
+        hasTower = true;
+        UpdateVisual();
+    }
+
+    void CreateTower(TowerType towerType)
     {
         Vector3 towerPosition = transform.position;
-
-        GameObject towerObject = null;
+        GameObject towerObject;
 
         if (towerPrefab != null)
         {
@@ -91,69 +63,74 @@ public class BuildSpot : MonoBehaviour
         else
         {
             towerObject = new GameObject("Runtime Tower");
-            towerObject.name = "Runtime Tower";
             towerObject.transform.position = towerPosition + Vector3.up * 0.05f;
-
-            GameObject baseObject = CreateTowerPart("Stone Base", PrimitiveType.Cylinder, towerObject.transform);
-            baseObject.transform.localPosition = new Vector3(0f, 0.15f, 0f);
-            baseObject.transform.localScale = new Vector3(1.1f, 0.25f, 1.1f);
-            SetColor(baseObject, new Color(0.35f, 0.35f, 0.38f));
-
-            GameObject bodyObject = CreateTowerPart("Stone Body", PrimitiveType.Cylinder, towerObject.transform);
-            bodyObject.transform.localPosition = new Vector3(0f, 0.85f, 0f);
-            bodyObject.transform.localScale = new Vector3(0.75f, 1.2f, 0.75f);
-            SetColor(bodyObject, new Color(0.46f, 0.46f, 0.5f));
-
-            GameObject roofObject = CreateTowerPart("Mage Roof", PrimitiveType.Cylinder, towerObject.transform);
-            roofObject.transform.localPosition = new Vector3(0f, 1.6f, 0f);
-            roofObject.transform.localScale = new Vector3(0.95f, 0.35f, 0.95f);
-            SetColor(roofObject, new Color(0.25f, 0.18f, 0.55f));
         }
 
-        GameObject crystalObject = CreateTowerPart("Magic Crystal", PrimitiveType.Sphere, towerObject.transform);
-        crystalObject.transform.localPosition = new Vector3(0f, 2.0f, 0f);
-        crystalObject.transform.localScale = new Vector3(0.32f, 0.32f, 0.32f);
-        SetColor(crystalObject, new Color(0.2f, 0.7f, 1f));
-
-        Transform firePoint = crystalObject.transform;
-
-        builtTower = towerObject.AddComponent<Tower>();
-        builtTower.range = 8f;
-        builtTower.fireRate = 1f;
-        builtTower.damage = 20;
+        Transform firePoint = CreateVisualByType(towerObject.transform, towerType);
+        builtTower = towerObject.GetComponent<Tower>();
+        if (builtTower == null) builtTower = towerObject.AddComponent<Tower>();
         builtTower.firePoint = firePoint;
         builtTower.debugLogs = false;
+        builtTower.ConfigureByType(towerType);
+        EnsureTowerSelectionCollider(towerObject);
+    }
+
+    Transform CreateVisualByType(Transform root, TowerType type)
+    {
+        if (type == TowerType.Mage)
+        {
+            GameObject baseObj = CreatePart("Base", PrimitiveType.Cylinder, root, new Vector3(0f, 0.2f, 0f), new Vector3(0.9f, 0.2f, 0.9f), new Color(0.28f, 0.28f, 0.35f));
+            GameObject body = CreatePart("Body", PrimitiveType.Cylinder, root, new Vector3(0f, 0.85f, 0f), new Vector3(0.6f, 1f, 0.6f), new Color(0.4f, 0.4f, 0.55f));
+            GameObject crystal = CreatePart("Crystal", PrimitiveType.Sphere, root, new Vector3(0f, 1.8f, 0f), new Vector3(0.3f, 0.3f, 0.3f), new Color(0.2f, 0.7f, 1f));
+            return crystal.transform;
+        }
+        if (type == TowerType.Archer)
+        {
+            GameObject baseObj = CreatePart("Base", PrimitiveType.Cylinder, root, new Vector3(0f, 0.18f, 0f), new Vector3(0.95f, 0.18f, 0.95f), new Color(0.35f, 0.25f, 0.18f));
+            GameObject post = CreatePart("Post", PrimitiveType.Cylinder, root, new Vector3(0f, 0.9f, 0f), new Vector3(0.35f, 1.1f, 0.35f), new Color(0.45f, 0.3f, 0.2f));
+            GameObject bowTop = CreatePart("BowTop", PrimitiveType.Cube, root, new Vector3(0f, 1.8f, 0f), new Vector3(1.1f, 0.1f, 0.1f), new Color(0.55f, 0.35f, 0.2f));
+            return bowTop.transform;
+        }
+        if (type == TowerType.Catapult)
+        {
+            GameObject baseObj = CreatePart("Base", PrimitiveType.Cube, root, new Vector3(0f, 0.25f, 0f), new Vector3(1.2f, 0.5f, 1.2f), new Color(0.35f, 0.32f, 0.28f));
+            GameObject arm = CreatePart("Arm", PrimitiveType.Cube, root, new Vector3(0f, 1.0f, 0.1f), new Vector3(0.18f, 0.18f, 1.4f), new Color(0.45f, 0.38f, 0.24f));
+            GameObject rock = CreatePart("Rock", PrimitiveType.Sphere, root, new Vector3(0f, 1.0f, 0.85f), new Vector3(0.35f, 0.35f, 0.35f), new Color(0.32f, 0.32f, 0.34f));
+            return rock.transform;
+        }
+
+        GameObject barracks = CreatePart("BarracksBase", PrimitiveType.Cube, root, new Vector3(0f, 0.35f, 0f), new Vector3(1.4f, 0.7f, 1.4f), new Color(0.42f, 0.38f, 0.32f));
+        GameObject banner = CreatePart("Banner", PrimitiveType.Cube, root, new Vector3(0f, 1.2f, 0f), new Vector3(0.2f, 0.8f, 0.2f), new Color(0.2f, 0.2f, 0.2f));
+        return banner.transform;
+    }
+
+    GameObject CreatePart(string name, PrimitiveType primitive, Transform parent, Vector3 localPos, Vector3 localScale, Color color)
+    {
+        GameObject go = GameObject.CreatePrimitive(primitive);
+        go.name = name;
+        go.transform.SetParent(parent);
+        go.transform.localPosition = localPos;
+        go.transform.localScale = localScale;
+        go.transform.localRotation = Quaternion.identity;
+        Collider c = go.GetComponent<Collider>();
+        if (c != null) Destroy(c);
+        Renderer r = go.GetComponent<Renderer>();
+        if (r != null) r.material.color = color;
+        return go;
     }
 
     void UpdateVisual()
     {
         if (spotRenderer == null) return;
-
         spotRenderer.material.color = hasTower ? occupiedColor : availableColor;
     }
 
-    GameObject CreateTowerPart(string partName, PrimitiveType primitiveType, Transform parent)
+    void EnsureTowerSelectionCollider(GameObject towerObject)
     {
-        GameObject part = GameObject.CreatePrimitive(primitiveType);
-        part.name = partName;
-        part.transform.SetParent(parent);
-        part.transform.localRotation = Quaternion.identity;
-
-        Collider collider = part.GetComponent<Collider>();
-        if (collider != null)
-        {
-            Destroy(collider);
-        }
-
-        return part;
-    }
-
-    void SetColor(GameObject target, Color color)
-    {
-        Renderer renderer = target.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            renderer.material.color = color;
-        }
+        if (towerObject == null) return;
+        if (towerObject.GetComponent<Collider>() != null) return;
+        SphereCollider selectionCollider = towerObject.AddComponent<SphereCollider>();
+        selectionCollider.center = new Vector3(0f, 1f, 0f);
+        selectionCollider.radius = 0.8f;
     }
 }

@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
+
 public class UIManager : MonoBehaviour
 {
     public Text goldText;
@@ -8,546 +10,235 @@ public class UIManager : MonoBehaviour
     public Text waveText;
     public Text messageText;
     public Button startWaveButton;
-    public Button buildTowerButton;
     public bool autoLayout = false;
-
     public Text towerInfoText;
     public Button upgradeDamageButton;
     public Button upgradeRangeButton;
     public Button upgradeFireRateButton;
 
     private WaveManager waveManager;
-    private BuildManager buildManager;
     private Tower selectedTower;
     private Canvas canvas;
     private Camera mainCamera;
     private GameObject towerInfoPanel;
     private RectTransform towerInfoRect;
-    private RectTransform upgradeDamageRect;
-    private RectTransform upgradeRangeRect;
-    private RectTransform upgradeFireRateRect;
+    private int stageDisplay = 1;
+    private int waveDisplay = 1;
+    private GameObject buildChoicePanel;
+    private GameObject bonusChoicePanel;
+    private BuildSpot pendingSpot;
+    private bool bonusChoiceOpen;
+    private System.Action<int> bonusChoiceCallback;
+    private float buildChoiceReadyTime;
 
     void Start()
     {
         waveManager = FindAnyObjectByType<WaveManager>();
-        Debug.Log("WaveManager found: " + (waveManager != null), this);
         canvas = FindAnyObjectByType<Canvas>();
-        Debug.Log("Canvas found: " + (canvas != null), this);
         mainCamera = Camera.main;
-        Debug.Log("Main Camera found: " + (mainCamera != null), this);
-        buildManager = FindAnyObjectByType<BuildManager>();
-        Debug.Log("BuildManager found: " + (buildManager != null), this);
         FindMissingReferences();
         CreateUIIfMissing();
-
-        Debug.Log("UIManager Start - Finding buttons...", this);
-
-        if (startWaveButton != null)
-        {
-            startWaveButton.onClick.AddListener(StartWave);
-            Debug.Log("StartWave button listener added", this);
-        }
-        else
-        {
-            Debug.LogWarning("UIManager could not find StartWaveButton. Drag it into the UIManager or name the button StartWaveButton.", this);
-        }
-
-        if (buildTowerButton != null)
-        {
-            buildTowerButton.onClick.AddListener(ToggleBuildMode);
-            Debug.Log("BuildTower button listener added", this);
-        }
-        else
-        {
-            Debug.LogWarning("UIManager could not find BuildTowerButton. Drag it into the UIManager or name the button BuildTowerButton.", this);
-        }
-
-        if (autoLayout)
-        {
-            ApplySimpleLayout();
-        }
-
-        Debug.Log("UIManager Start completed", this);
+        SetupUpgradeButtons();
+        CreateBuildChoicePanelIfMissing();
+        CreateBonusChoicePanelIfMissing();
+        HideLegacyBuildButton();
+        if (startWaveButton != null) startWaveButton.onClick.AddListener(StartWave);
+        if (autoLayout) ApplySimpleLayout();
     }
 
-    public void UpdateGold(int gold)
-    {
-        if (goldText != null)
-        {
-            goldText.text = "Gold: " + gold;
-        }
-    }
-    void CreateUIIfMissing()
-{
-    // 🔥 SE JÁ EXISTE UI NO CANVAS → USA ELA
-    if (towerInfoText != null)
-    {
-        towerInfoPanel = towerInfoText.transform.parent.gameObject;
-        towerInfoRect = towerInfoPanel.GetComponent<RectTransform>();
-        return;
-    }
-
-    // 🔥 SE NÃO EXISTE → CRIA (seu código original)
-    towerInfoPanel = new GameObject("TowerInfoPanel");
-    towerInfoRect = towerInfoPanel.AddComponent<RectTransform>();
-    towerInfoRect.SetParent(canvas.transform, false);
-    towerInfoRect.anchorMin = new Vector2(0.5f, 0f);
-    towerInfoRect.anchorMax = new Vector2(0.5f, 0f);
-    towerInfoRect.pivot = new Vector2(0.5f, 0f);
-    towerInfoRect.anchoredPosition = new Vector2(0f, 20f);
-    towerInfoRect.sizeDelta = new Vector2(250f, 140f);
-
-    Image bgImage = towerInfoPanel.AddComponent<Image>();
-    bgImage.color = new Color(0.08f, 0.10f, 0.15f, 0.94f);
-    bgImage.raycastTarget = false;
-
-    GameObject headerObj = new GameObject("Header");
-    RectTransform headerRect = headerObj.AddComponent<RectTransform>();
-    headerRect.SetParent(towerInfoRect, false);
-    headerRect.anchorMin = new Vector2(0f, 1f);
-    headerRect.anchorMax = new Vector2(1f, 1f);
-    headerRect.pivot = new Vector2(0.5f, 1f);
-    headerRect.anchoredPosition = Vector2.zero;
-    headerRect.sizeDelta = new Vector2(0f, 28f);
-
-    Image headerImage = headerObj.AddComponent<Image>();
-    headerImage.color = new Color(0.12f, 0.45f, 0.68f, 1f);
-    headerImage.raycastTarget = false;
-
-    GameObject headerTextObj = new GameObject("HeaderText");
-    Text headerText = headerTextObj.AddComponent<Text>();
-    headerText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-    headerText.text = "Tower Control";
-    headerText.fontSize = 14;
-    headerText.fontStyle = FontStyle.Bold;
-    headerText.alignment = TextAnchor.MiddleCenter;
-    headerText.color = Color.white;
-    headerText.raycastTarget = false;
-
-    RectTransform headerTextRect = headerTextObj.GetComponent<RectTransform>();
-    headerTextRect.SetParent(headerRect, false);
-    headerTextRect.anchorMin = Vector2.zero;
-    headerTextRect.anchorMax = Vector2.one;
-    headerTextRect.offsetMin = Vector2.zero;
-    headerTextRect.offsetMax = Vector2.zero;
-
-    GameObject textObj = new GameObject("InfoText");
-    towerInfoText = textObj.AddComponent<Text>();
-    towerInfoText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-    towerInfoText.text = "";
-    towerInfoText.fontSize = 13;
-    towerInfoText.alignment = TextAnchor.UpperLeft;
-    towerInfoText.color = new Color(0.92f, 0.96f, 1f, 1f);
-
-    RectTransform textRect = textObj.GetComponent<RectTransform>();
-    textRect.SetParent(towerInfoRect, false);
-    textRect.anchorMin = new Vector2(0f, 0f);
-    textRect.anchorMax = new Vector2(1f, 1f);
-    textRect.offsetMin = new Vector2(12f, 50f);
-    textRect.offsetMax = new Vector2(-12f, -42f);
-
-    towerInfoPanel.SetActive(false);
-}
-    public void UpdateCastleHealth(int health, int maxHealth)
-    {
-        if (castleHealthText != null)
-        {
-            castleHealthText.text = "Castle HP: " + health + "/" + maxHealth;
-        }
-    }
-
-    public void UpdateWave(int wave)
-    {
-        if (waveText != null)
-        {
-            waveText.text = "Wave: " + wave;
-        }
-    }
-
-    public void UpdateBuildMode(bool active)
-    {
-        if (buildTowerButton != null)
-        {
-            buildTowerButton.gameObject.SetActive(!active);
-
-            Text buttonText = buildTowerButton.GetComponentInChildren<Text>();
-            if (buttonText != null)
-            {
-                buttonText.text = "Build Tower";
-            }
-        }
-
-        ShowMessage(active ? "Tap a green build spot" : "");
-    }
-
-    public void UpdateStartWaveButton(bool waveRunning, bool allWavesFinished)
-    {
-        if (startWaveButton == null) return;
-
-        startWaveButton.interactable = !waveRunning && !allWavesFinished;
-        Text buttonText = startWaveButton.GetComponentInChildren<Text>();
-        if (buttonText != null)
-        {
-            buttonText.text = allWavesFinished ? "Victory" : waveRunning ? "Wave Running" : "Start Wave";
-        }
-    }
-
-    public void UpdateGameOver(bool gameOver)
-    {
-        if (gameOver)
-        {
-            ShowMessage("Game Over");
-        }
-    }
-
-    public void UpdateWaveMessage(bool waveRunning, int aliveEnemies)
-    {
-        if (waveRunning)
-        {
-            ShowMessage("Enemies: " + aliveEnemies);
-        }
-        else
-        {
-            ShowMessage("");
-        }
-    }
-
-    void StartWave()
-    {
-        Debug.Log("StartWave button clicked!", this);
-        if (waveManager != null)
-        {
-            Debug.Log("Calling waveManager.StartNextWave()", this);
-            waveManager.StartNextWave();
-        }
-        else
-        {
-            Debug.LogWarning("No WaveManager found in the scene.", this);
-        }
-    }
-
-    void ToggleBuildMode()
-    {
-        Debug.Log("BuildTower button clicked!", this);
-        if (buildManager != null)
-        {
-            Debug.Log("Calling buildManager.ToggleBuildMode()", this);
-            buildManager.ToggleBuildMode();
-        }
-        else
-        {
-            Debug.LogWarning("No BuildManager found in the scene.", this);
-        }
-    }
-
-    void ShowMessage(string message)
-    {
-        if (messageText != null)
-        {
-            messageText.text = message;
-        }
-    }
-
-    void FindMissingReferences()
-    {
-        Debug.Log("Finding missing UI references...", this);
-
-        if (goldText == null)
-        {
-            goldText = FindTextByName("GoldText");
-            Debug.Log("GoldText found: " + (goldText != null), this);
-        }
-
-        if (castleHealthText == null)
-        {
-            castleHealthText = FindTextByName("CastleHPText");
-            Debug.Log("CastleHPText found: " + (castleHealthText != null), this);
-        }
-
-        if (waveText == null)
-        {
-            waveText = FindTextByName("WaveText");
-            Debug.Log("WaveText found: " + (waveText != null), this);
-        }
-
-        if (messageText == null)
-        {
-            messageText = FindTextByName("MessageText");
-            Debug.Log("MessageText found: " + (messageText != null), this);
-        }
-
-        if (startWaveButton == null)
-        {
-            startWaveButton = FindButtonByName("StartWaveButton");
-            Debug.Log("StartWaveButton found: " + (startWaveButton != null), this);
-        }
-
-        if (buildTowerButton == null)
-        {
-            buildTowerButton = FindButtonByName("BuildTowerButton");
-            Debug.Log("BuildTowerButton found: " + (buildTowerButton != null), this);
-        }
-    }
-void HandleClickOutside()
-{
-    if (Mouse.current == null) return;
-
-    if (!Mouse.current.leftButton.wasPressedThisFrame)
-        return;
-
-    Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-
-    if (Physics.Raycast(ray, out RaycastHit hit))
-    {
-        Tower tower = hit.collider.GetComponent<Tower>();
-
-        if (tower != null)
-        {
-            SelectTower(tower);
-            return;
-        }
-    }
-
-    if (selectedTower != null)
-    {
-        DeselectTower();
-    }
-}
     void Update()
     {
         HandleClickOutside();
     }
 
+    public void UpdateGold(int gold) { if (goldText != null) goldText.text = "Gold: " + gold; if (selectedTower != null) UpdateUpgradeButtonLabels(); }
+    public void UpdateCastleHealth(int health, int maxHealth) { if (castleHealthText != null) castleHealthText.text = "Castle HP: " + health + "/" + maxHealth; }
+    public void UpdateWave(int wave) { waveDisplay = wave; if (waveText != null) waveText.text = "Stage: " + stageDisplay + "  Wave: " + waveDisplay; }
+    public void UpdateStage(int stage) { stageDisplay = stage; if (waveText != null) waveText.text = "Stage: " + stageDisplay + "  Wave: " + waveDisplay; }
+    public void UpdateBuildMode(bool active) { }
+    public void UpdateGameOver(bool gameOver) { if (gameOver) ShowMessage("Game Over"); }
+    public void UpdateWaveMessage(bool waveRunning, int aliveEnemies) { if (!bonusChoiceOpen) ShowMessage(waveRunning ? "Enemies: " + aliveEnemies : ""); }
 
-    Button CreateUpgradeButton(string name, string label, Vector2 position)
+    public void UpdateStartWaveButton(bool waveRunning, bool allWavesFinished)
     {
-        GameObject buttonObj = new GameObject(name);
-        RectTransform rectTransform = buttonObj.AddComponent<RectTransform>();
-        rectTransform.SetParent(towerInfoRect != null ? towerInfoRect : canvas.transform, false);
-        rectTransform.anchorMin = new Vector2(0, 1);
-        rectTransform.anchorMax = new Vector2(0, 1);
-        rectTransform.pivot = new Vector2(0, 1);
-        rectTransform.anchoredPosition = position;
-        rectTransform.sizeDelta = new Vector2(72f, 42f);
-
-        Image bgImage = buttonObj.AddComponent<Image>();
-        bgImage.color = new Color(0.14f, 0.22f, 0.34f, 1f);
-
-        Button button = buttonObj.AddComponent<Button>();
-        ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.14f, 0.22f, 0.34f, 1f);
-        colors.highlightedColor = new Color(0.22f, 0.34f, 0.54f, 1f);
-        colors.pressedColor = new Color(0.10f, 0.16f, 0.26f, 1f);
-        colors.disabledColor = new Color(0.08f, 0.12f, 0.18f, 0.45f);
-        button.colors = colors;
-        button.targetGraphic = bgImage;
-
-        GameObject textObj = new GameObject("Text");
-        RectTransform textRect = textObj.AddComponent<RectTransform>();
-        textRect.SetParent(rectTransform, false);
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = new Vector2(4f, 4f);
-        textRect.offsetMax = new Vector2(-4f, -4f);
-
-        Text buttonText = textObj.AddComponent<Text>();
-        buttonText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        buttonText.text = label;
-        buttonText.fontSize = 16;
-        buttonText.fontStyle = FontStyle.Bold;
-        buttonText.alignment = TextAnchor.MiddleCenter;
-        buttonText.color = Color.white;
-        buttonText.horizontalOverflow = HorizontalWrapMode.Wrap;
-        buttonText.verticalOverflow = VerticalWrapMode.Truncate;
-
-        buttonObj.SetActive(false);
-        return button;
+        if (startWaveButton == null) return;
+        startWaveButton.interactable = !waveRunning && !allWavesFinished;
+        Text t = startWaveButton.GetComponentInChildren<Text>();
+        if (t != null) t.text = allWavesFinished ? "Victory" : waveRunning ? "Wave Running" : "Start Wave";
     }
 
-    Text FindTextByName(string objectName)
+    public void ShowBuildChoice(BuildSpot spot)
     {
-        GameObject foundObject = GameObject.Find(objectName);
-        if (foundObject == null) return null;
-
-        return foundObject.GetComponent<Text>();
+        if (spot == null || buildChoicePanel == null) return;
+        pendingSpot = spot;
+        buildChoicePanel.SetActive(true);
+        buildChoiceReadyTime = Time.time + 0.15f;
+        DeselectTower();
     }
 
-    Button FindButtonByName(string objectName)
+    public void ShowBonusChoices(string[] labels, System.Action<int> onSelect)
     {
-        GameObject foundObject = GameObject.Find(objectName);
-        if (foundObject == null) return null;
-
-        return foundObject.GetComponent<Button>();
+        if (labels == null || labels.Length < 3 || bonusChoicePanel == null) return;
+        bonusChoiceOpen = true;
+        bonusChoiceCallback = onSelect;
+        ShowMessage("Choose a bonus");
+        bonusChoicePanel.SetActive(true);
+        SetBonusButtonLabel(0, labels[0]);
+        SetBonusButtonLabel(1, labels[1]);
+        SetBonusButtonLabel(2, labels[2]);
     }
 
-    void ApplySimpleLayout()
+    public void SelectTower(Tower tower) { selectedTower = tower; if (buildChoicePanel != null) buildChoicePanel.SetActive(false); UpdateTowerInfo(); }
+    public void DeselectTower() { selectedTower = null; UpdateTowerInfo(); }
+
+    void StartWave() { if (waveManager != null) waveManager.StartNextWave(); }
+    void ConfirmBuildTower(TowerType type) { if (Time.time < buildChoiceReadyTime) return; if (pendingSpot != null) pendingSpot.BuildTower(type); pendingSpot = null; if (buildChoicePanel != null) buildChoicePanel.SetActive(false); }
+    void ConfirmBonusChoice(int idx) { bonusChoiceOpen = false; if (bonusChoicePanel != null) bonusChoicePanel.SetActive(false); ShowMessage(""); if (bonusChoiceCallback != null) bonusChoiceCallback(idx); bonusChoiceCallback = null; }
+
+    void HandleClickOutside()
     {
-        PlaceText(goldText, new Vector2(16f, -16f));
-        PlaceText(castleHealthText, new Vector2(16f, -48f));
-        PlaceText(waveText, new Vector2(16f, -80f));
-        PlaceText(messageText, new Vector2(0f, -16f), TextAnchor.UpperCenter);
-
-        PlaceButton(startWaveButton, new Vector2(-20f, -20f));
-        PlaceButton(buildTowerButton, new Vector2(-20f, -78f));
-    }
-
-    void PlaceText(Text text, Vector2 anchoredPosition)
-    {
-        PlaceText(text, anchoredPosition, TextAnchor.UpperLeft);
-    }
-
-
-    void PlaceText(Text text, Vector2 anchoredPosition, TextAnchor alignment)
-    {
-        if (text == null) return;
-
-        RectTransform rect = text.GetComponent<RectTransform>();
-        rect.anchorMin = alignment == TextAnchor.UpperCenter ? new Vector2(0.5f, 1f) : new Vector2(0f, 1f);
-        rect.anchorMax = rect.anchorMin;
-        rect.pivot = alignment == TextAnchor.UpperCenter ? new Vector2(0.5f, 1f) : new Vector2(0f, 1f);
-        rect.anchoredPosition = anchoredPosition;
-        rect.sizeDelta = alignment == TextAnchor.UpperCenter ? new Vector2(260f, 30f) : new Vector2(220f, 28f);
-
-        text.alignment = alignment;
-        text.fontSize = 18;
-        text.color = Color.black;
-    }
-
-    void PlaceButton(Button button, Vector2 anchoredPosition)
-    {
-        if (button == null) return;
-
-        RectTransform rect = button.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 1f);
-        rect.anchorMax = new Vector2(1f, 1f);
-        rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = anchoredPosition;
-        rect.sizeDelta = new Vector2(150f, 42f);
-
-        Text buttonText = button.GetComponentInChildren<Text>();
-        if (buttonText != null)
+        if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+        if (mainCamera == null) return;
+        Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+        if (Physics.Raycast(ray, out RaycastHit hit))
         {
-            buttonText.fontSize = 16;
-            buttonText.alignment = TextAnchor.MiddleCenter;
-            buttonText.color = Color.black;
+            if (hit.collider.GetComponentInParent<BuildSpot>() != null) return;
+            Tower tower = hit.collider.GetComponentInParent<Tower>();
+            if (tower != null) { SelectTower(tower); return; }
         }
+        if (buildChoicePanel != null) buildChoicePanel.SetActive(false);
+        if (selectedTower != null) DeselectTower();
     }
 
-    public void SelectTower(Tower tower)
+    void CreateUIIfMissing()
     {
-        Debug.Log("Tower selected: " + (tower != null ? tower.name : "null"), this);
-
-
-        selectedTower = tower;
-        UpdateTowerInfo();
+        if (canvas == null) return;
+        if (towerInfoText != null) { towerInfoPanel = towerInfoText.transform.parent.gameObject; towerInfoRect = towerInfoPanel.GetComponent<RectTransform>(); return; }
+        towerInfoPanel = new GameObject("TowerInfoPanel");
+        towerInfoRect = towerInfoPanel.AddComponent<RectTransform>();
+        towerInfoRect.SetParent(canvas.transform, false);
+        towerInfoRect.anchorMin = new Vector2(0.5f, 0f); towerInfoRect.anchorMax = new Vector2(0.5f, 0f); towerInfoRect.pivot = new Vector2(0.5f, 0f);
+        towerInfoRect.anchoredPosition = new Vector2(0f, 20f); towerInfoRect.sizeDelta = new Vector2(320f, 200f);
+        Image bg = towerInfoPanel.AddComponent<Image>(); bg.color = new Color(0.08f, 0.10f, 0.15f, 0.94f);
+        GameObject textObj = new GameObject("InfoText");
+        towerInfoText = textObj.AddComponent<Text>(); towerInfoText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); towerInfoText.fontSize = 13; towerInfoText.alignment = TextAnchor.UpperLeft; towerInfoText.color = Color.white;
+        RectTransform textRect = textObj.GetComponent<RectTransform>();
+        textRect.SetParent(towerInfoRect, false); textRect.anchorMin = new Vector2(0f, 0f); textRect.anchorMax = new Vector2(1f, 1f); textRect.offsetMin = new Vector2(12f, 72f); textRect.offsetMax = new Vector2(-12f, -30f);
+        towerInfoPanel.SetActive(false);
     }
 
-    public void DeselectTower()
+    void CreateBuildChoicePanelIfMissing()
     {
-        selectedTower = null;
-        UpdateTowerInfo();
+        if (canvas == null || buildChoicePanel != null) return;
+        buildChoicePanel = CreatePanel("BuildChoicePanel", new Vector2(380f, 120f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f));
+        CreateChoiceButton(buildChoicePanel.transform, "Mage", new Vector2(-140f, 0f), () => ConfirmBuildTower(TowerType.Mage));
+        CreateChoiceButton(buildChoicePanel.transform, "Archer", new Vector2(-45f, 0f), () => ConfirmBuildTower(TowerType.Archer));
+        CreateChoiceButton(buildChoicePanel.transform, "Catapult", new Vector2(50f, 0f), () => ConfirmBuildTower(TowerType.Catapult));
+        CreateChoiceButton(buildChoicePanel.transform, "Barracks", new Vector2(145f, 0f), () => ConfirmBuildTower(TowerType.Barracks));
+        buildChoicePanel.SetActive(false);
+    }
+
+    void CreateBonusChoicePanelIfMissing()
+    {
+        if (canvas == null || bonusChoicePanel != null) return;
+        bonusChoicePanel = CreatePanel("BonusChoicePanel", new Vector2(420f, 140f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 20f));
+        CreateChoiceButton(bonusChoicePanel.transform, "Bonus 1", new Vector2(-130f, 0f), () => ConfirmBonusChoice(0), "BonusButton1");
+        CreateChoiceButton(bonusChoicePanel.transform, "Bonus 2", new Vector2(0f, 0f), () => ConfirmBonusChoice(1), "BonusButton2");
+        CreateChoiceButton(bonusChoicePanel.transform, "Bonus 3", new Vector2(130f, 0f), () => ConfirmBonusChoice(2), "BonusButton3");
+        bonusChoicePanel.SetActive(false);
+    }
+
+    GameObject CreatePanel(string name, Vector2 size, Vector2 anchor, Vector2 pivot, Vector2 pos)
+    {
+        GameObject panel = new GameObject(name);
+        RectTransform r = panel.AddComponent<RectTransform>();
+        r.SetParent(canvas.transform, false);
+        r.anchorMin = anchor; r.anchorMax = anchor; r.pivot = pivot; r.anchoredPosition = pos; r.sizeDelta = size;
+        Image bg = panel.AddComponent<Image>(); bg.color = new Color(0.08f, 0.1f, 0.15f, 0.96f);
+        return panel;
+    }
+
+    void CreateChoiceButton(Transform parent, string label, Vector2 offset, UnityEngine.Events.UnityAction action, string name = null)
+    {
+        GameObject buttonObj = new GameObject(string.IsNullOrEmpty(name) ? label + "Button" : name);
+        RectTransform rect = buttonObj.AddComponent<RectTransform>();
+        rect.SetParent(parent, false); rect.anchorMin = new Vector2(0.5f, 0.5f); rect.anchorMax = new Vector2(0.5f, 0.5f); rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = offset; rect.sizeDelta = new Vector2(120f, 72f);
+        Image img = buttonObj.AddComponent<Image>(); img.color = new Color(0.17f, 0.25f, 0.35f, 1f);
+        Button btn = buttonObj.AddComponent<Button>(); btn.targetGraphic = img; btn.onClick.AddListener(action);
+        GameObject txtObj = new GameObject("Text");
+        RectTransform txtRect = txtObj.AddComponent<RectTransform>();
+        txtRect.SetParent(rect, false); txtRect.anchorMin = Vector2.zero; txtRect.anchorMax = Vector2.one; txtRect.offsetMin = new Vector2(4f, 4f); txtRect.offsetMax = new Vector2(-4f, -4f);
+        Text txt = txtObj.AddComponent<Text>(); txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); txt.text = label; txt.alignment = TextAnchor.MiddleCenter; txt.color = Color.white; txt.fontSize = 12;
+    }
+
+    void SetBonusButtonLabel(int index, string label)
+    {
+        if (bonusChoicePanel == null) return;
+        Transform button = bonusChoicePanel.transform.Find("BonusButton" + (index + 1));
+        if (button == null) return;
+        Text txt = button.GetComponentInChildren<Text>();
+        if (txt != null) txt.text = label;
     }
 
     void UpdateTowerInfo()
     {
         if (towerInfoText == null) return;
-
-        if (selectedTower == null)
-        {
-            towerInfoText.text = "";
-            if (towerInfoPanel != null)
-            {
-                towerInfoPanel.SetActive(false);
-            }
-            SetUpgradeButtonsActive(false);
-            return;
-        }
-
-        if (towerInfoPanel != null)
-        {
-            towerInfoPanel.SetActive(true);
-        }
-
+        if (selectedTower == null) { towerInfoText.text = ""; if (towerInfoPanel != null) towerInfoPanel.SetActive(false); SetUpgradeButtonsActive(false); return; }
+        if (towerInfoPanel != null) towerInfoPanel.SetActive(true);
         SetUpgradeButtonsActive(true);
         UpdateUpgradeButtonLabels();
-
-        string info = "Tower Info:\n";
-        info += "Damage: " + selectedTower.damage + " (Lvl " + selectedTower.upgradeDamageLevel + ")\n";
-        info += "Range: " + selectedTower.range.ToString("F1") + " (Lvl " + selectedTower.upgradeRangeLevel + ")\n";
-        info += "Fire Rate: " + selectedTower.fireRate.ToString("F1") + " (Lvl " + selectedTower.upgradeFireRateLevel + ")";
-
-        towerInfoText.text = info;
+        towerInfoText.text = "Type: " + selectedTower.towerType + "\nDamage: " + selectedTower.damage + " (Lvl " + selectedTower.upgradeDamageLevel + "/" + selectedTower.maxUpgradeLevel + ")\nRange: " + selectedTower.range.ToString("F1") + " (Lvl " + selectedTower.upgradeRangeLevel + "/" + selectedTower.maxUpgradeLevel + ")\nFire Rate: " + selectedTower.fireRate.ToString("F1") + " (Lvl " + selectedTower.upgradeFireRateLevel + "/" + selectedTower.maxUpgradeLevel + ")";
     }
 
-    void SetUpgradeButtonsActive(bool active)
+    void SetupUpgradeButtons()
     {
-        if (upgradeDamageButton != null)
-            upgradeDamageButton.gameObject.SetActive(active);
-        if (upgradeRangeButton != null)
-            upgradeRangeButton.gameObject.SetActive(active);
-        if (upgradeFireRateButton != null)
-            upgradeFireRateButton.gameObject.SetActive(active);
+        if (towerInfoRect == null) return;
+        if (upgradeDamageButton == null) upgradeDamageButton = CreateUpgradeButton("UpgradeDamageButton", "Damage", new Vector2(12f, -132f));
+        if (upgradeRangeButton == null) upgradeRangeButton = CreateUpgradeButton("UpgradeRangeButton", "Range", new Vector2(112f, -132f));
+        if (upgradeFireRateButton == null) upgradeFireRateButton = CreateUpgradeButton("UpgradeFireRateButton", "Fire", new Vector2(212f, -132f));
+        ConfigureUpgradeButton(upgradeDamageButton, UpgradeDamage);
+        ConfigureUpgradeButton(upgradeRangeButton, UpgradeRange);
+        ConfigureUpgradeButton(upgradeFireRateButton, UpgradeFireRate);
+        SetUpgradeButtonsActive(false);
     }
 
+    Button CreateUpgradeButton(string name, string label, Vector2 pos)
+    {
+        GameObject obj = new GameObject(name);
+        RectTransform rect = obj.AddComponent<RectTransform>();
+        rect.SetParent(towerInfoRect, false); rect.anchorMin = new Vector2(0, 1); rect.anchorMax = new Vector2(0, 1); rect.pivot = new Vector2(0, 1); rect.anchoredPosition = pos; rect.sizeDelta = new Vector2(90f, 42f);
+        Image img = obj.AddComponent<Image>(); img.color = new Color(0.14f, 0.22f, 0.34f, 1f);
+        Button b = obj.AddComponent<Button>(); b.targetGraphic = img;
+        GameObject t = new GameObject("Text");
+        RectTransform tr = t.AddComponent<RectTransform>();
+        tr.SetParent(rect, false); tr.anchorMin = Vector2.zero; tr.anchorMax = Vector2.one; tr.offsetMin = new Vector2(4f, 4f); tr.offsetMax = new Vector2(-4f, -4f);
+        Text tx = t.AddComponent<Text>(); tx.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); tx.text = label; tx.fontSize = 14; tx.alignment = TextAnchor.MiddleCenter; tx.color = Color.white;
+        obj.SetActive(false); return b;
+    }
+
+    void ConfigureUpgradeButton(Button b, UnityEngine.Events.UnityAction a) { if (b == null) return; b.onClick.RemoveListener(a); b.onClick.AddListener(a); }
     void UpdateUpgradeButtonLabels()
     {
         if (selectedTower == null) return;
-
-        if (upgradeDamageButton != null)
-        {
-            Text buttonText = upgradeDamageButton.GetComponentInChildren<Text>();
-            if (buttonText != null)
-            {
-                buttonText.text = "⚔ Damage\n" + selectedTower.upgradeDamageCost + "g";
-            }
-            upgradeDamageButton.interactable = selectedTower.upgradeDamageLevel < selectedTower.maxUpgradeLevel && GameManager.Instance.Gold >= selectedTower.upgradeDamageCost;
-        }
-
-        if (upgradeRangeButton != null)
-        {
-            Text buttonText = upgradeRangeButton.GetComponentInChildren<Text>();
-            if (buttonText != null)
-            {
-                buttonText.text = "🎯 Range\n" + selectedTower.upgradeRangeCost + "g";
-            }
-            upgradeRangeButton.interactable = selectedTower.upgradeRangeLevel < selectedTower.maxUpgradeLevel && GameManager.Instance.Gold >= selectedTower.upgradeRangeCost;
-        }
-
-        if (upgradeFireRateButton != null)
-        {
-            Text buttonText = upgradeFireRateButton.GetComponentInChildren<Text>();
-            if (buttonText != null)
-            {
-                buttonText.text = "🔥 Fire\n" + selectedTower.upgradeFireRateCost + "g";
-            }
-            upgradeFireRateButton.interactable = selectedTower.upgradeFireRateLevel < selectedTower.maxUpgradeLevel && GameManager.Instance.Gold >= selectedTower.upgradeFireRateCost;
-        }
+        int gold = GameManager.Instance != null ? GameManager.Instance.Gold : 0;
+        SetUpgradeLabel(upgradeDamageButton, "Damage", selectedTower.upgradeDamageLevel, selectedTower.maxUpgradeLevel, selectedTower.upgradeDamageCost, gold >= selectedTower.upgradeDamageCost);
+        SetUpgradeLabel(upgradeRangeButton, "Range", selectedTower.upgradeRangeLevel, selectedTower.maxUpgradeLevel, selectedTower.upgradeRangeCost, gold >= selectedTower.upgradeRangeCost);
+        SetUpgradeLabel(upgradeFireRateButton, "Fire", selectedTower.upgradeFireRateLevel, selectedTower.maxUpgradeLevel, selectedTower.upgradeFireRateCost, gold >= selectedTower.upgradeFireRateCost);
     }
 
-    void UpgradeDamage()
-    {
-        if (selectedTower != null)
-        {
-            selectedTower.UpgradeDamage();
-            UpdateTowerInfo();
-        }
-    }
-
-    void UpgradeRange()
-    {
-        if (selectedTower != null)
-        {
-            selectedTower.UpgradeRange();
-            UpdateTowerInfo();
-        }
-    }
-
-    void UpgradeFireRate()
-    {
-        if (selectedTower != null)
-        {
-            selectedTower.UpgradeFireRate();
-            UpdateTowerInfo();
-        }
-    }
+    void SetUpgradeLabel(Button b, string label, int level, int max, int cost, bool canPay) { if (b == null) return; Text t = b.GetComponentInChildren<Text>(); if (t != null) t.text = level >= max ? label + "\nMAX" : label + "\n" + cost + "g"; b.interactable = level < max && canPay; }
+    void UpgradeDamage() { if (selectedTower != null && selectedTower.UpgradeDamage()) UpdateTowerInfo(); }
+    void UpgradeRange() { if (selectedTower != null && selectedTower.UpgradeRange()) UpdateTowerInfo(); }
+    void UpgradeFireRate() { if (selectedTower != null && selectedTower.UpgradeFireRate()) UpdateTowerInfo(); }
+    void SetUpgradeButtonsActive(bool a) { if (upgradeDamageButton != null) upgradeDamageButton.gameObject.SetActive(a); if (upgradeRangeButton != null) upgradeRangeButton.gameObject.SetActive(a); if (upgradeFireRateButton != null) upgradeFireRateButton.gameObject.SetActive(a); }
+    void ShowMessage(string m) { if (messageText != null) messageText.text = m; }
+    void FindMissingReferences() { if (goldText == null) goldText = FindTextByName("GoldText"); if (castleHealthText == null) castleHealthText = FindTextByName("CastleHPText"); if (waveText == null) waveText = FindTextByName("WaveText"); if (messageText == null) messageText = FindTextByName("MessageText"); if (startWaveButton == null) startWaveButton = FindButtonByName("StartWaveButton"); }
+    void HideLegacyBuildButton() { GameObject old = GameObject.Find("BuildTowerButton"); if (old != null) old.SetActive(false); }
+    Text FindTextByName(string n) { GameObject o = GameObject.Find(n); return o != null ? o.GetComponent<Text>() : null; }
+    Button FindButtonByName(string n) { GameObject o = GameObject.Find(n); return o != null ? o.GetComponent<Button>() : null; }
+    void ApplySimpleLayout() { PlaceText(goldText, new Vector2(16f, -16f)); PlaceText(castleHealthText, new Vector2(16f, -48f)); PlaceText(waveText, new Vector2(16f, -80f)); PlaceText(messageText, new Vector2(0f, -16f), TextAnchor.UpperCenter); PlaceButton(startWaveButton, new Vector2(-20f, -20f)); }
+    void PlaceText(Text t, Vector2 p, TextAnchor a = TextAnchor.UpperLeft) { if (t == null) return; RectTransform r = t.GetComponent<RectTransform>(); r.anchorMin = a == TextAnchor.UpperCenter ? new Vector2(0.5f, 1f) : new Vector2(0f, 1f); r.anchorMax = r.anchorMin; r.pivot = r.anchorMin; r.anchoredPosition = p; r.sizeDelta = a == TextAnchor.UpperCenter ? new Vector2(300f, 30f) : new Vector2(250f, 28f); t.alignment = a; t.fontSize = 18; t.color = Color.black; }
+    void PlaceButton(Button b, Vector2 p) { if (b == null) return; RectTransform r = b.GetComponent<RectTransform>(); r.anchorMin = new Vector2(1f, 1f); r.anchorMax = new Vector2(1f, 1f); r.pivot = new Vector2(1f, 1f); r.anchoredPosition = p; r.sizeDelta = new Vector2(160f, 44f); }
 }
