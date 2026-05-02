@@ -15,7 +15,6 @@ public class BuildSpot : MonoBehaviour
     private GameManager gameManager;
     private bool hasTower;
     private bool previewSelected;
-    private int lastClickFrame = -1;
     private Renderer spotRenderer;
     private Tower builtTower;
 
@@ -45,15 +44,23 @@ public class BuildSpot : MonoBehaviour
         CreateSpotVisuals();
         UpdateVisual();
     }
-
+    void DisableColliderIfHasTower()
+    {
+        if (hasTower)
+        {
+            Collider col = GetComponent<Collider>();
+            if (col != null)
+                col.enabled = false;
+        }
+    }
     void OnMouseDown()
     {
-        // 🔥 BLOQUEIA se clicou através da UI
+        Debug.Log("CLICK BUILD SPOT");
+        UIManager.clickedOnBuildSpotThisFrame = true;
         if (UnityEngine.EventSystems.EventSystem.current != null &&
             UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
             return;
 
-        // 🔥 NÃO FAZ NADA se já tem torre
         if (hasTower)
             return;
 
@@ -86,7 +93,15 @@ public class BuildSpot : MonoBehaviour
     // =========================
     // BUILD
     // =========================
+    void SetLayerRecursively(GameObject obj, int layer)
+    {
+        obj.layer = layer;
 
+        foreach (Transform child in obj.transform)
+        {
+            SetLayerRecursively(child.gameObject, layer);
+        }
+    }
     public void BuildTower(TowerType towerType)
     {
         if (hasTower || gameManager == null) return;
@@ -95,7 +110,9 @@ public class BuildSpot : MonoBehaviour
         CreateTower(towerType);
         hasTower = true;
 
-        ClearPreview(); // 🔥 garante limpar highlight
+        DisableColliderIfHasTower(); // 🔥 ESSA LINHA
+
+        ClearPreview();
         UpdateVisual();
     }
 
@@ -109,6 +126,13 @@ public class BuildSpot : MonoBehaviour
         if (selectedPrefab != null)
         {
             towerObject = Instantiate(selectedPrefab, towerPosition + Vector3.up * 0.8f, Quaternion.identity);
+
+            // 🔥 aplica layer automaticamente
+            int towerLayer = LayerMask.NameToLayer("Tower");
+            if (towerLayer != -1)
+            {
+                SetLayerRecursively(towerObject, towerLayer);
+            }
             towerObject.transform.localScale = Vector3.one * 0.56f;
         }
         else
@@ -244,28 +268,15 @@ public class BuildSpot : MonoBehaviour
     {
         if (towerObject == null) return;
 
-        Renderer[] rends = towerObject.GetComponentsInChildren<Renderer>();
-        if (rends.Length == 0) return;
-
-        Bounds bounds = rends[0].bounds;
-
-        for (int i = 1; i < rends.Length; i++)
-            bounds.Encapsulate(rends[i].bounds);
-
-        // remove collider antigo (se existir)
         Collider existing = towerObject.GetComponent<Collider>();
         if (existing != null)
             Destroy(existing);
 
         BoxCollider box = towerObject.AddComponent<BoxCollider>();
 
-        // 🔥 converte bounds global → local
-        box.center = towerObject.transform.InverseTransformPoint(bounds.center);
-
-        Vector3 size = bounds.size;
-        size.y += 0.5f; // aumenta um pouco pra facilitar clique
-
-        box.size *= 1.1f;
+        // 🔥 tamanho controlado (não automático)
+        box.center = new Vector3(0f, 0.8f, 0f);
+        box.size = new Vector3(1.2f, 1.6f, 1.2f);
     }
     Transform CreateVisualByType(Transform root, TowerType type)
     {

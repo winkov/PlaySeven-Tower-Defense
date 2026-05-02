@@ -17,7 +17,7 @@ public class UIManager : MonoBehaviour
     public Button upgradeDamageButton;
     public Button upgradeRangeButton;
     public Button upgradeFireRateButton;
-
+    public static bool clickedOnBuildSpotThisFrame = false;
     private WaveManager waveManager;
     private Tower selectedTower;
     private Canvas canvas;
@@ -25,7 +25,7 @@ public class UIManager : MonoBehaviour
     private RectTransform rootRect;
     private int stageDisplay = 1;
     private int waveDisplay = 1;
-
+    private float blockTowerSelectionUntil = 0f;
     private GameObject hudRoot;
     private GameObject statsPanel;
     private GameObject rankingPanel;
@@ -645,9 +645,7 @@ public class UIManager : MonoBehaviour
 
     public void ShowBuildChoice(BuildSpot spot)
     {
-        // 🔥 NÃO deixa trocar spot enquanto menu aberto
-        if (buildChoicePanel != null && buildChoicePanel.activeSelf)
-            return;
+
 
         if (spot == null || buildChoicePanel == null) return;
 
@@ -656,7 +654,7 @@ public class UIManager : MonoBehaviour
 
         pendingSpot = spot;
         pendingSpot.SetBuildPreviewSelected(true);
-
+        blockTowerSelectionUntil = Time.time + 0.1f;
         buildChoiceReadyTime = Time.time + 0.15f;
         buildChoicePanel.SetActive(true);
 
@@ -721,12 +719,11 @@ public class UIManager : MonoBehaviour
 
     void Update()
     {
-        // 🔥 bloqueia interação se UI estiver aberta
-        if (buildChoicePanel != null && buildChoicePanel.activeSelf)
+        if (clickedOnBuildSpotThisFrame)
+        {
+            clickedOnBuildSpotThisFrame = false;
             return;
-
-        if (bonusChoicePanel != null && bonusChoicePanel.activeSelf)
-            return;
+        }
 
         if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame)
             return;
@@ -746,39 +743,39 @@ public class UIManager : MonoBehaviour
         float closestSpotDist = float.MaxValue;
         float closestTowerDist = float.MaxValue;
 
-        for (int i = 0; i < hits.Length; i++)
+        foreach (var hit in hits)
         {
-            float dist = hits[i].distance;
+            float dist = hit.distance;
 
-            BuildSpot spot = hits[i].collider.GetComponentInParent<BuildSpot>();
-            if (spot != null && dist < closestSpotDist)
-            {
-                closestSpotDist = dist;
-                closestSpot = spot;
-            }
-
-            Tower tower = hits[i].collider.GetComponentInParent<Tower>();
+            Tower tower = hit.collider.GetComponentInParent<Tower>();
             if (tower != null && dist < closestTowerDist)
             {
                 closestTowerDist = dist;
                 closestTower = tower;
             }
+
+            BuildSpot spot = hit.collider.GetComponentInParent<BuildSpot>();
+            if (spot != null && dist < closestSpotDist)
+            {
+                closestSpotDist = dist;
+                closestSpot = spot;
+            }
         }
 
-        // 🔥 prioridade absoluta: torre se estiver MAIS PERTO
-        if (closestTower != null && closestTowerDist <= closestSpotDist)
+        // 🔥 PRIORIDADE REAL: o que está MAIS PERTO do clique
+        if (closestSpot != null && closestSpotDist <= closestTowerDist)
+        {
+            ShowBuildChoice(closestSpot);
+            return;
+        }
+
+        if (closestTower != null)
         {
             SelectTower(closestTower);
             return;
         }
 
-        // 🔥 senão, deixa o BuildSpot lidar
-        if (closestSpot != null)
-        {
-            return;
-        }
-
-        // 🔥 clique no vazio → limpa seleção
+        // 🔥 clique fora → fecha menu
         if (buildChoicePanel != null)
             buildChoicePanel.SetActive(false);
 
@@ -792,7 +789,6 @@ public class UIManager : MonoBehaviour
 
         UpdateWaveMessage(false, 0);
     }
-
     void UpdateTowerInfo()
     {
         if (towerInfoPanel == null || towerInfoText == null)

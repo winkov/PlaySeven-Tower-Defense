@@ -42,16 +42,18 @@ public class Tower : MonoBehaviour
 
     private float fireTimer;
     private float soldierSpawnTimer;
-
+    private LineRenderer targetLine;
+    private Enemy currentTarget;
     private int baseDamage;
     private float baseRange;
     private float baseFireRate;
     private float baseSplashRadius;
     private int baseArmor;
     private Vector3 baseVisualScale = Vector3.one;
-
+    private float lineTimer;
     void Awake()
     {
+        CreateTargetLine();
         baseDamage = damage;
         baseRange = range;
         baseFireRate = fireRate;
@@ -59,7 +61,37 @@ public class Tower : MonoBehaviour
         baseArmor = armor;
         baseVisualScale = transform.localScale;
     }
+    void CreateTargetLine()
+    {
+        GameObject lineObj = new GameObject("TargetLine");
+        lineObj.transform.SetParent(transform);
 
+        targetLine = lineObj.AddComponent<LineRenderer>();
+
+        targetLine.positionCount = 2;
+        targetLine.startWidth = 0.05f;
+        targetLine.endWidth = 0.02f;
+
+        targetLine.material = new Material(Shader.Find("Sprites/Default"));
+        targetLine.startColor = new Color(1f, 0.9f, 0.3f, 1f);
+        targetLine.endColor = new Color(1f, 0.2f, 0.1f, 0.4f);
+
+        targetLine.enabled = false;
+        if (towerType == TowerType.Mage)
+        {
+            targetLine.startColor = Color.cyan;
+        }
+        else if (towerType == TowerType.Archer)
+        {
+            targetLine.startColor = new Color(0.6f, 0.4f, 0.2f);
+        }
+        else if (towerType == TowerType.Catapult)
+        {
+            targetLine.startColor = Color.gray;
+        }
+        float pulse = Mathf.Abs(Mathf.Sin(Time.time * 6f)) * 0.03f;
+        targetLine.startWidth = 0.04f + pulse;
+    }
     public void ConfigureByType(TowerType type)
     {
         towerType = type;
@@ -135,12 +167,39 @@ public class Tower : MonoBehaviour
         if (fireTimer > 0f) return;
 
         Enemy target = SelectTarget();
+        currentTarget = target;
+
+        UpdateTargetLine();
+
         if (target == null) return;
 
         Shoot(target);
         fireTimer = 1f / Mathf.Max(0.1f, fireRate);
     }
+    void UpdateTargetLine()
+    {
+        if (targetLine == null) return;
 
+        lineTimer -= Time.deltaTime;
+
+        if (currentTarget == null || lineTimer <= 0f)
+        {
+            targetLine.enabled = false;
+            return;
+        }
+
+        targetLine.enabled = true;
+
+        Vector3 start = firePoint != null ? firePoint.position : transform.position + Vector3.up * 1f;
+        Vector3 end = currentTarget.transform.position + Vector3.up * 0.8f;
+
+        targetLine.SetPosition(0, start);
+        targetLine.SetPosition(1, end);
+        float pulse = Mathf.Abs(Mathf.Sin(Time.time * 20f)) * 0.02f;
+
+        targetLine.startWidth = 0.06f + pulse;
+        targetLine.endWidth = 0.02f;
+    }
     void HandleBarracksSpawn()
     {
         soldierSpawnTimer -= Time.deltaTime;
@@ -242,6 +301,7 @@ public class Tower : MonoBehaviour
 
         ConfigureProjectileVisual(projectile);
         projectile.SetTarget(target, damage);
+        lineTimer = 0.08f; // tempo visível da linha
     }
 
     GameObject CreateRuntimeProjectile(Vector3 pos)

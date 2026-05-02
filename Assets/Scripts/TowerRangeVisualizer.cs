@@ -11,10 +11,15 @@ public class TowerRangeVisualizer : MonoBehaviour
             rangeObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             rangeObj.name = "TowerRange";
 
-            // remove collider
-            Object.Destroy(rangeObj.GetComponent<Collider>());
+            // 🔥 REMOVE QUALQUER COLLIDER (garantia total)
+            Collider col = rangeObj.GetComponent<Collider>();
+            if (col != null)
+                Object.Destroy(col);
 
-            // material transparente
+            // 🔥 COLOCA NA LAYER QUE IGNORA RAYCAST
+            rangeObj.layer = LayerMask.NameToLayer("Ignore Raycast");
+
+            // 🔥 MATERIAL TRANSPARENTE
             Renderer r = rangeObj.GetComponent<Renderer>();
             r.material = new Material(Shader.Find("Standard"));
 
@@ -31,10 +36,10 @@ public class TowerRangeVisualizer : MonoBehaviour
 
         rangeObj.SetActive(true);
 
-        // 🔥 posição no chão
+        // 🔥 POSIÇÃO NO CHÃO
         rangeObj.transform.position = new Vector3(position.x, 0.05f, position.z);
 
-        // 🔥 escala correta (Cylinder = radius * 2)
+        // 🔥 ESCALA (Cylinder usa diâmetro)
         rangeObj.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
     }
 
