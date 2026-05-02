@@ -11,9 +11,11 @@ public class BuildSpotGenerator : MonoBehaviour
     public float minDistanceFromPath = 2.2f;
 
     [Header("Generation")]
-    public int segmentSpacing = 2; // a cada X segmentos gera spots
+    public int segmentSpacing = 2;
     public int buildCost = 50;
     public bool generateOnStart = true;
+
+    public int spotsPerSide = 5;
 
     private WaypointPath waypointPath;
 
@@ -25,7 +27,9 @@ public class BuildSpotGenerator : MonoBehaviour
         }
     }
 
-    public int spotsPerSide = 5;
+    // =========================
+    // GENERATION
+    // =========================
 
     public void GenerateBuildSpots()
     {
@@ -49,6 +53,8 @@ public class BuildSpotGenerator : MonoBehaviour
         {
             Transform a = waypointPath.GetWaypoint(i);
             Transform b = waypointPath.GetWaypoint(i + 1);
+
+            if (a == null || b == null) continue;
 
             float segmentLength = Vector3.Distance(a.position, b.position);
             Vector3 dir = (b.position - a.position).normalized;
@@ -78,41 +84,24 @@ public class BuildSpotGenerator : MonoBehaviour
 
         for (int i = 0; i < waypointPath.Count - 1; i++)
         {
-            length += Vector3.Distance(
-                waypointPath.GetWaypoint(i).position,
-                waypointPath.GetWaypoint(i + 1).position
-            );
+            Transform a = waypointPath.GetWaypoint(i);
+            Transform b = waypointPath.GetWaypoint(i + 1);
+
+            if (a == null || b == null) continue;
+
+            length += Vector3.Distance(a.position, b.position);
         }
 
         return length;
     }
 
-    void CreateStrategicSpot(int segmentIndex, float sideSign, float along, string spotName)
-    {
-        Transform start = waypointPath.GetWaypoint(segmentIndex);
-        Transform end = waypointPath.GetWaypoint(segmentIndex + 1);
-
-        if (start == null || end == null) return;
-
-        Vector3 middle = Vector3.Lerp(start.position, end.position, along);
-
-        Vector3 direction = (end.position - start.position).normalized;
-
-        // 🔥 lado perpendicular ao caminho
-        Vector3 side = Vector3.Cross(Vector3.up, direction).normalized;
-
-        Vector3 candidate = middle + side * sideOffset * sideSign;
-
-        // 🔥 evita colar no path
-        candidate = PushAwayFromPath(candidate, side * sideSign);
-
-        CreateBuildSpot(candidate, spotName);
-    }
+    // =========================
+    // POSITIONING
+    // =========================
 
     Vector3 PushAwayFromPath(Vector3 candidate, Vector3 pushDir)
     {
         Vector3 adjusted = candidate;
-
         int guard = 0;
 
         while (DistanceToPathXZ(adjusted) < minDistanceFromPath && guard < 10)
@@ -156,6 +145,10 @@ public class BuildSpotGenerator : MonoBehaviour
         return best;
     }
 
+    // =========================
+    // BUILD SPOT CREATION
+    // =========================
+
     void CreateBuildSpot(Vector3 position, string spotName)
     {
         position.y = 0.08f;
@@ -176,7 +169,6 @@ public class BuildSpotGenerator : MonoBehaviour
             if (r != null)
                 r.material.color = new Color(0.65f, 0.75f, 0.55f);
 
-            // 🔥 GARANTE collider ativo
             Collider col = spotObject.GetComponent<Collider>();
             if (col == null)
                 col = spotObject.AddComponent<CapsuleCollider>();
@@ -203,5 +195,41 @@ public class BuildSpotGenerator : MonoBehaviour
             if (existing[i] != null)
                 Destroy(existing[i].gameObject);
         }
+    }
+    Transform CreateVisualByType(Transform root, TowerType type)
+    {
+        GameObject part = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+
+        part.transform.SetParent(root);
+        part.transform.localPosition = new Vector3(0f, 1f, 0f);
+        part.transform.localScale = new Vector3(0.5f, 1f, 0.5f);
+
+        Destroy(part.GetComponent<Collider>());
+
+        Renderer r = part.GetComponent<Renderer>();
+
+        if (r != null)
+        {
+            switch (type)
+            {
+                case TowerType.Mage:
+                    r.material.color = Color.blue;
+                    break;
+
+                case TowerType.Archer:
+                    r.material.color = new Color(0.6f, 0.4f, 0.2f);
+                    break;
+
+                case TowerType.Catapult:
+                    r.material.color = Color.gray;
+                    break;
+
+                case TowerType.Barracks:
+                    r.material.color = Color.red;
+                    break;
+            }
+        }
+
+        return part.transform;
     }
 }

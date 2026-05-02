@@ -8,14 +8,17 @@ public class BuildSpot : MonoBehaviour
     public GameObject catapultTowerPrefab;
     public GameObject barracksTowerPrefab;
     public int buildCost = 50;
+
     public Color availableColor = new Color(0.72f, 0.78f, 0.58f);
     public Color occupiedColor = new Color(0.36f, 0.34f, 0.3f);
 
     private GameManager gameManager;
     private bool hasTower;
     private bool previewSelected;
+    private int lastClickFrame = -1;
     private Renderer spotRenderer;
     private Tower builtTower;
+
     private Transform ringVisual;
     private Transform baseVisual;
     private Renderer ringRenderer;
@@ -24,35 +27,67 @@ public class BuildSpot : MonoBehaviour
     void Start()
     {
         gameManager = FindAnyObjectByType<GameManager>();
+
 #if UNITY_EDITOR
         AutoAssignTowerPrefabsInEditor();
 #endif
+
         spotRenderer = GetComponent<Renderer>();
+
         Collider collider = GetComponent<Collider>();
         if (collider == null)
         {
             BoxCollider box = gameObject.AddComponent<BoxCollider>();
-            box.size = new Vector3(1.8f, 0.25f, 1.8f);
+            box.center = new Vector3(0f, 0.1f, 0f);
+            box.size = new Vector3(1.8f, 0.3f, 1.8f);
         }
+
         CreateSpotVisuals();
         UpdateVisual();
     }
 
     void OnMouseDown()
     {
-        if (hasTower)
-        {
-            UIManager ui = FindAnyObjectByType<UIManager>();
-            if (ui != null && builtTower != null) ui.SelectTower(builtTower);
+        // 🔥 BLOQUEIA clique passando pela UI
+        if (UnityEngine.EventSystems.EventSystem.current != null &&
+            UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
             return;
-        }
 
         UIManager manager = FindAnyObjectByType<UIManager>();
         if (manager != null)
         {
             manager.ShowBuildChoice(this);
         }
+        if (Time.frameCount == lastClickFrame) return;
+        lastClickFrame = Time.frameCount;
     }
+
+    // =========================
+    // 🔥 NOVOS MÉTODOS (INTEGRAÇÃO UI)
+    // =========================
+
+    public void ShowPreview()
+    {
+        if (hasTower) return;
+        previewSelected = true;
+        UpdateVisual();
+    }
+
+    public void ClearPreview()
+    {
+        previewSelected = false;
+        UpdateVisual();
+    }
+
+    public void SetBuildPreviewSelected(bool selected)
+    {
+        previewSelected = selected;
+        UpdateVisual();
+    }
+
+    // =========================
+    // BUILD
+    // =========================
 
     public void BuildTower(TowerType towerType)
     {
@@ -61,12 +96,15 @@ public class BuildSpot : MonoBehaviour
 
         CreateTower(towerType);
         hasTower = true;
+
+        ClearPreview(); // 🔥 garante limpar highlight
         UpdateVisual();
     }
 
     void CreateTower(TowerType towerType)
     {
         Vector3 towerPosition = transform.position;
+
         GameObject towerObject;
         GameObject selectedPrefab = GetTowerPrefabByType(towerType);
 
@@ -81,12 +119,18 @@ public class BuildSpot : MonoBehaviour
             towerObject.transform.position = towerPosition + Vector3.up * 0.5f;
         }
 
-        Transform firePoint = selectedPrefab == null ? CreateVisualByType(towerObject.transform, towerType) : FindFirePointFromPrefab(towerObject.transform);
+        Transform firePoint = selectedPrefab == null
+            ? CreateVisualByType(towerObject.transform, towerType)
+            : FindFirePointFromPrefab(towerObject.transform);
+
         builtTower = towerObject.GetComponent<Tower>();
-        if (builtTower == null) builtTower = towerObject.AddComponent<Tower>();
+        if (builtTower == null)
+            builtTower = towerObject.AddComponent<Tower>();
+
         builtTower.firePoint = firePoint;
         builtTower.debugLogs = false;
         builtTower.ConfigureByType(towerType);
+
         EnsureTowerSelectionCollider(towerObject);
     }
 
@@ -101,14 +145,14 @@ public class BuildSpot : MonoBehaviour
     Transform FindFirePointFromPrefab(Transform root)
     {
         Transform[] children = root.GetComponentsInChildren<Transform>();
+
         for (int i = 0; i < children.Length; i++)
         {
             string n = children[i].name.ToLowerInvariant();
             if (n.Contains("muzzle") || n.Contains("fire") || n.Contains("tip") || n.Contains("head"))
-            {
                 return children[i];
-            }
         }
+
         return root;
     }
 
@@ -122,49 +166,9 @@ public class BuildSpot : MonoBehaviour
     }
 #endif
 
-    Transform CreateVisualByType(Transform root, TowerType type)
-    {
-        if (type == TowerType.Mage)
-        {
-            GameObject baseObj = CreatePart("Base", PrimitiveType.Cylinder, root, new Vector3(0f, 0.2f, 0f), new Vector3(0.9f, 0.2f, 0.9f), new Color(0.28f, 0.28f, 0.35f));
-            GameObject body = CreatePart("Body", PrimitiveType.Cylinder, root, new Vector3(0f, 0.85f, 0f), new Vector3(0.6f, 1f, 0.6f), new Color(0.4f, 0.4f, 0.55f));
-            GameObject crystal = CreatePart("Crystal", PrimitiveType.Sphere, root, new Vector3(0f, 1.8f, 0f), new Vector3(0.3f, 0.3f, 0.3f), new Color(0.2f, 0.7f, 1f));
-            return crystal.transform;
-        }
-        if (type == TowerType.Archer)
-        {
-            GameObject baseObj = CreatePart("Base", PrimitiveType.Cylinder, root, new Vector3(0f, 0.18f, 0f), new Vector3(0.95f, 0.18f, 0.95f), new Color(0.35f, 0.25f, 0.18f));
-            GameObject post = CreatePart("Post", PrimitiveType.Cylinder, root, new Vector3(0f, 0.9f, 0f), new Vector3(0.35f, 1.1f, 0.35f), new Color(0.45f, 0.3f, 0.2f));
-            GameObject bowTop = CreatePart("BowTop", PrimitiveType.Cube, root, new Vector3(0f, 1.8f, 0f), new Vector3(1.1f, 0.1f, 0.1f), new Color(0.55f, 0.35f, 0.2f));
-            return bowTop.transform;
-        }
-        if (type == TowerType.Catapult)
-        {
-            GameObject baseObj = CreatePart("Base", PrimitiveType.Cube, root, new Vector3(0f, 0.25f, 0f), new Vector3(1.2f, 0.5f, 1.2f), new Color(0.35f, 0.32f, 0.28f));
-            GameObject arm = CreatePart("Arm", PrimitiveType.Cube, root, new Vector3(0f, 1.0f, 0.1f), new Vector3(0.18f, 0.18f, 1.4f), new Color(0.45f, 0.38f, 0.24f));
-            GameObject rock = CreatePart("Rock", PrimitiveType.Sphere, root, new Vector3(0f, 1.0f, 0.85f), new Vector3(0.35f, 0.35f, 0.35f), new Color(0.32f, 0.32f, 0.34f));
-            return rock.transform;
-        }
-
-        GameObject barracks = CreatePart("BarracksBase", PrimitiveType.Cube, root, new Vector3(0f, 0.35f, 0f), new Vector3(1.4f, 0.7f, 1.4f), new Color(0.42f, 0.38f, 0.32f));
-        GameObject banner = CreatePart("Banner", PrimitiveType.Cube, root, new Vector3(0f, 1.2f, 0f), new Vector3(0.2f, 0.8f, 0.2f), new Color(0.2f, 0.2f, 0.2f));
-        return banner.transform;
-    }
-
-    GameObject CreatePart(string name, PrimitiveType primitive, Transform parent, Vector3 localPos, Vector3 localScale, Color color)
-    {
-        GameObject go = GameObject.CreatePrimitive(primitive);
-        go.name = name;
-        go.transform.SetParent(parent);
-        go.transform.localPosition = localPos;
-        go.transform.localScale = localScale;
-        go.transform.localRotation = Quaternion.identity;
-        Collider c = go.GetComponent<Collider>();
-        if (c != null) Destroy(c);
-        Renderer r = go.GetComponent<Renderer>();
-        if (r != null) r.material.color = color;
-        return go;
-    }
+    // =========================
+    // VISUAL
+    // =========================
 
     void CreateSpotVisuals()
     {
@@ -175,8 +179,9 @@ public class BuildSpot : MonoBehaviour
             pedestal.transform.SetParent(transform, false);
             pedestal.transform.localPosition = new Vector3(0f, -0.02f, 0f);
             pedestal.transform.localScale = new Vector3(1.45f, 0.18f, 1.45f);
-            Collider collider = pedestal.GetComponent<Collider>();
-            if (collider != null) Destroy(collider);
+
+            Destroy(pedestal.GetComponent<Collider>());
+
             baseRenderer = pedestal.GetComponent<Renderer>();
             baseVisual = pedestal.transform;
         }
@@ -193,8 +198,9 @@ public class BuildSpot : MonoBehaviour
             ring.transform.SetParent(transform, false);
             ring.transform.localPosition = new Vector3(0f, 0.04f, 0f);
             ring.transform.localScale = new Vector3(1.08f, 0.06f, 1.08f);
-            Collider collider = ring.GetComponent<Collider>();
-            if (collider != null) Destroy(collider);
+
+            Destroy(ring.GetComponent<Collider>());
+
             ringRenderer = ring.GetComponent<Renderer>();
             ringVisual = ring.transform;
         }
@@ -207,10 +213,9 @@ public class BuildSpot : MonoBehaviour
 
     void UpdateVisual()
     {
-        if (spotRenderer == null && baseRenderer == null && ringRenderer == null) return;
-
         Color topColor = hasTower ? occupiedColor : availableColor;
         Color ringColor = hasTower ? new Color(0.28f, 0.26f, 0.24f) : new Color(0.88f, 0.82f, 0.52f);
+
         Vector3 scale = new Vector3(1.65f, 0.12f, 1.65f);
 
         if (previewSelected && !hasTower)
@@ -221,24 +226,66 @@ public class BuildSpot : MonoBehaviour
         }
 
         transform.localScale = scale;
+
         if (spotRenderer != null) spotRenderer.material.color = topColor;
         if (baseRenderer != null) baseRenderer.material.color = new Color(0.41f, 0.35f, 0.24f);
         if (ringRenderer != null) ringRenderer.material.color = ringColor;
-        if (ringVisual != null) ringVisual.localScale = previewSelected && !hasTower ? new Vector3(1.18f, 0.06f, 1.18f) : new Vector3(1.08f, 0.06f, 1.08f);
-    }
 
-    public void SetBuildPreviewSelected(bool selected)
+        if (ringVisual != null)
+        {
+            ringVisual.localScale = previewSelected && !hasTower
+                ? new Vector3(1.18f, 0.06f, 1.18f)
+                : new Vector3(1.08f, 0.06f, 1.08f);
+        }
+    }
+    public void ShowPreview(TowerType type)
     {
-        previewSelected = selected;
-        UpdateVisual();
+        ShowPreview(); // ignora tipo por enquanto
     }
-
     void EnsureTowerSelectionCollider(GameObject towerObject)
     {
         if (towerObject == null) return;
+
         if (towerObject.GetComponent<Collider>() != null) return;
+
         SphereCollider selectionCollider = towerObject.AddComponent<SphereCollider>();
         selectionCollider.center = new Vector3(0f, 1f, 0f);
         selectionCollider.radius = 0.8f;
+    }
+    Transform CreateVisualByType(Transform root, TowerType type)
+    {
+        GameObject part = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+
+        part.transform.SetParent(root);
+        part.transform.localPosition = new Vector3(0f, 1f, 0f);
+        part.transform.localScale = new Vector3(0.5f, 1f, 0.5f);
+
+        Destroy(part.GetComponent<Collider>());
+
+        Renderer r = part.GetComponent<Renderer>();
+
+        if (r != null)
+        {
+            switch (type)
+            {
+                case TowerType.Mage:
+                    r.material.color = Color.blue;
+                    break;
+
+                case TowerType.Archer:
+                    r.material.color = new Color(0.6f, 0.4f, 0.2f);
+                    break;
+
+                case TowerType.Catapult:
+                    r.material.color = Color.gray;
+                    break;
+
+                case TowerType.Barracks:
+                    r.material.color = Color.red;
+                    break;
+            }
+        }
+
+        return part.transform;
     }
 }

@@ -23,7 +23,6 @@ public class UIManager : MonoBehaviour
     private Canvas canvas;
     private Camera mainCamera;
     private RectTransform rootRect;
-
     private int stageDisplay = 1;
     private int waveDisplay = 1;
 
@@ -706,15 +705,22 @@ public class UIManager : MonoBehaviour
 
     void Update()
     {
-        if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
-        if (IsPointerOverUI()) return;
-        if (mainCamera == null) return;
-        // 🔥 BLOQUEIA interação com mundo se UI de build estiver aberta
+        // 🔥 bloqueia interação se UI estiver aberta
         if (buildChoicePanel != null && buildChoicePanel.activeSelf)
             return;
 
         if (bonusChoicePanel != null && bonusChoicePanel.activeSelf)
             return;
+
+        if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame)
+            return;
+
+        if (IsPointerOverUI())
+            return;
+
+        if (mainCamera == null)
+            return;
+
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
         RaycastHit[] hits = Physics.RaycastAll(ray);
 
@@ -731,7 +737,7 @@ public class UIManager : MonoBehaviour
             {
                 closestDistance = dist;
                 closestSpot = spot;
-                closestTower = null; // prioridade pro spot
+                closestTower = null;
                 continue;
             }
 
@@ -744,24 +750,29 @@ public class UIManager : MonoBehaviour
             }
         }
 
-        // 🔥 prioridade: spot primeiro
+        // 🔥 se clicou em um spot, deixa o próprio BuildSpot lidar (OnMouseDown)
         if (closestSpot != null)
-        {
             return;
-        }
 
+        // 🔥 seleção de torre
         if (closestTower != null)
         {
             SelectTower(closestTower);
             return;
         }
 
-        if (bonusChoicePanel != null && bonusChoicePanel.activeSelf) return;
+        // 🔥 clique no vazio → limpa seleção
+        if (buildChoicePanel != null)
+            buildChoicePanel.SetActive(false);
 
-        if (buildChoicePanel != null) buildChoicePanel.SetActive(false);
-        if (pendingSpot != null) pendingSpot.SetBuildPreviewSelected(false);
+        if (pendingSpot != null)
+            pendingSpot.SetBuildPreviewSelected(false);
+
         pendingSpot = null;
-        if (selectedTower != null) DeselectTower();
+
+        if (selectedTower != null)
+            DeselectTower();
+
         UpdateWaveMessage(false, 0);
     }
 
@@ -858,20 +869,15 @@ public class UIManager : MonoBehaviour
 
     void ConfirmBuildTower(TowerType type)
     {
-        if (Time.time < buildChoiceReadyTime) return;
+        if (pendingSpot == null) return;
 
-        if (pendingSpot != null)
-        {
-            BuildSpot spotToBuild = pendingSpot; // 🔥 trava referência
+        pendingSpot.BuildTower(type);
 
-            pendingSpot = null;
+        pendingSpot.SetBuildPreviewSelected(false);
+        pendingSpot = null;
 
-            if (buildChoicePanel != null)
-                buildChoicePanel.SetActive(false);
-
-            spotToBuild.BuildTower(type);
-            spotToBuild.SetBuildPreviewSelected(false);
-        }
+        if (buildChoicePanel != null)
+            buildChoicePanel.SetActive(false);
 
         UpdateWaveMessage(false, 0);
     }
