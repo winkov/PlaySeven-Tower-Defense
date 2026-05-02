@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class UIManager : MonoBehaviour
 {
@@ -149,7 +150,16 @@ public class UIManager : MonoBehaviour
             if (existing != null) Destroy(existing);
         }
     }
+    bool IsPointerOverUI()
+    {
+        PointerEventData eventData = new PointerEventData(EventSystem.current);
+        eventData.position = Mouse.current.position.ReadValue();
 
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(eventData, results);
+
+        return results.Count > 0;
+    }
     void HookButtons()
     {
         if (startWaveButton != null)
@@ -636,15 +646,24 @@ public class UIManager : MonoBehaviour
 
     public void ShowBuildChoice(BuildSpot spot)
     {
+        // 🔥 NÃO deixa trocar spot enquanto menu aberto
+        if (buildChoicePanel != null && buildChoicePanel.activeSelf)
+            return;
+
         if (spot == null || buildChoicePanel == null) return;
 
-        if (pendingSpot != null && pendingSpot != spot) pendingSpot.SetBuildPreviewSelected(false);
+        if (pendingSpot != null && pendingSpot != spot)
+            pendingSpot.SetBuildPreviewSelected(false);
 
         pendingSpot = spot;
         pendingSpot.SetBuildPreviewSelected(true);
+
         buildChoiceReadyTime = Time.time + 0.15f;
         buildChoicePanel.SetActive(true);
-        if (bonusChoicePanel != null) bonusChoicePanel.SetActive(false);
+
+        if (bonusChoicePanel != null)
+            bonusChoicePanel.SetActive(false);
+
         UpdateBuildChoiceLabels();
         DeselectTower();
         UpdateWaveMessage(false, 0);
@@ -688,20 +707,53 @@ public class UIManager : MonoBehaviour
     void Update()
     {
         if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+        if (IsPointerOverUI()) return;
         if (mainCamera == null) return;
+        // 🔥 BLOQUEIA interação com mundo se UI de build estiver aberta
+        if (buildChoicePanel != null && buildChoicePanel.activeSelf)
+            return;
 
+        if (bonusChoicePanel != null && bonusChoicePanel.activeSelf)
+            return;
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (Physics.Raycast(ray, out RaycastHit hit))
-        {
-            if (hit.collider.GetComponentInParent<BuildSpot>() != null) return;
+        RaycastHit[] hits = Physics.RaycastAll(ray);
 
-            Tower tower = hit.collider.GetComponentInParent<Tower>();
-            if (tower != null)
+        float closestDistance = float.MaxValue;
+        BuildSpot closestSpot = null;
+        Tower closestTower = null;
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            float dist = hits[i].distance;
+
+            BuildSpot spot = hits[i].collider.GetComponentInParent<BuildSpot>();
+            if (spot != null && dist < closestDistance)
             {
-                SelectTower(tower);
-                return;
+                closestDistance = dist;
+                closestSpot = spot;
+                closestTower = null; // prioridade pro spot
+                continue;
             }
+
+            Tower tower = hits[i].collider.GetComponentInParent<Tower>();
+            if (tower != null && dist < closestDistance)
+            {
+                closestDistance = dist;
+                closestTower = tower;
+                closestSpot = null;
+            }
+        }
+
+        // 🔥 prioridade: spot primeiro
+        if (closestSpot != null)
+        {
+            return;
+        }
+
+        if (closestTower != null)
+        {
+            SelectTower(closestTower);
+            return;
         }
 
         if (bonusChoicePanel != null && bonusChoicePanel.activeSelf) return;
@@ -810,12 +862,17 @@ public class UIManager : MonoBehaviour
 
         if (pendingSpot != null)
         {
-            pendingSpot.BuildTower(type);
-            pendingSpot.SetBuildPreviewSelected(false);
+            BuildSpot spotToBuild = pendingSpot; // 🔥 trava referência
+
+            pendingSpot = null;
+
+            if (buildChoicePanel != null)
+                buildChoicePanel.SetActive(false);
+
+            spotToBuild.BuildTower(type);
+            spotToBuild.SetBuildPreviewSelected(false);
         }
 
-        pendingSpot = null;
-        if (buildChoicePanel != null) buildChoicePanel.SetActive(false);
         UpdateWaveMessage(false, 0);
     }
 

@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
-
+using System.Collections.Generic;
 public class Enemy : MonoBehaviour
 {
     public EnemyTypeEnum enemyType = EnemyTypeEnum.Archer;
@@ -14,8 +14,8 @@ public class Enemy : MonoBehaviour
     private WaypointPath waypointPath;
     private WaveManager waveManager;
     private bool isDead;
-
-    private Renderer meshRenderer;
+    private bool isBlocked = false;
+    private Transform blocker; private Renderer meshRenderer;
 
     private GameObject healthBarCanvasObj;
     private Image healthBarFill;
@@ -32,10 +32,47 @@ public class Enemy : MonoBehaviour
 
     private float stuckTimer;
     private Vector3 lastPosition;
+    public float GetPathProgress()
+    {
+        if (waypointPath == null || waypointPath.Count == 0)
+            return 0f;
+
+        return currentWaypointIndex;
+    }
+
+    public int GetCurrentHealth()
+    {
+        return currentHealth;
+    }
 
     // =========================
     // INIT
     // =========================
+    public void SetBlocked(Transform source)
+    {
+        isBlocked = true;
+        blocker = source;
+    }
+
+    public void ReleaseBlock(Transform source)
+    {
+        if (blocker == source)
+        {
+            isBlocked = false;
+            blocker = null;
+        }
+    }
+    public static List<Enemy> ActiveEnemies = new List<Enemy>();
+
+    void OnEnable()
+    {
+        ActiveEnemies.Add(this);
+    }
+
+    void OnDisable()
+    {
+        ActiveEnemies.Remove(this);
+    }
     void Start()
     {
         currentHealth = maxHealth;
@@ -118,7 +155,7 @@ public class Enemy : MonoBehaviour
 
         StartCoroutine(AnimatePopup(popup, text));
     }
-        System.Collections.IEnumerator AnimatePopup(GameObject popup, Text text)
+    System.Collections.IEnumerator AnimatePopup(GameObject popup, Text text)
     {
         float t = 0f;
         Vector3 start = popup.transform.position;
@@ -279,6 +316,8 @@ public class Enemy : MonoBehaviour
     // =========================
     void MoveAlongPath()
     {
+        if (isBlocked) return;
+
         if (currentWaypointIndex >= waypointPath.Count)
         {
             ReachEndOfPath();
@@ -498,4 +537,4 @@ public class Enemy : MonoBehaviour
         if (healthBarCanvasObj != null)
             Destroy(healthBarCanvasObj);
     }
-    }
+}

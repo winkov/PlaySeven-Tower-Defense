@@ -59,7 +59,7 @@ public class BuildSpotGenerator : MonoBehaviour
                 Vector3 side = Vector3.Cross(Vector3.up, dir).normalized;
 
                 Vector3 right = PushAwayFromPath(point + side * sideOffset, side);
-                Vector3 left  = PushAwayFromPath(point - side * sideOffset, -side);
+                Vector3 left = PushAwayFromPath(point - side * sideOffset, -side);
 
                 CreateBuildSpot(right, "R_" + index);
                 CreateBuildSpot(left, "L_" + index);

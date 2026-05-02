@@ -10,6 +10,18 @@ public enum TowerType
 
 public class Tower : MonoBehaviour
 {
+    public enum TargetMode
+    {
+        First,
+        Last,
+        Strongest,
+        Closest
+    }
+
+    [Header("Targeting")]
+    public TargetMode targetMode = TargetMode.First;
+    public bool canHitFlying = true;
+    public bool canHitGround = true;
     public TowerType towerType = TowerType.Mage;
     public float range = 8f;
     public float fireRate = 1f;
@@ -52,7 +64,30 @@ public class Tower : MonoBehaviour
     {
         towerType = type;
         maxUpgradeLevel = 5;
-
+        if (type == TowerType.Mage)
+        {
+            canHitFlying = true;
+            canHitGround = true;
+            targetMode = TargetMode.Strongest;
+        }
+        else if (type == TowerType.Archer)
+        {
+            canHitFlying = true;
+            canHitGround = true;
+            targetMode = TargetMode.First;
+        }
+        else if (type == TowerType.Catapult)
+        {
+            canHitFlying = false; // 🔥 importante
+            canHitGround = true;
+            targetMode = TargetMode.Closest;
+        }
+        else // Barracks
+        {
+            canHitFlying = false; // 🔥 importante
+            canHitGround = true;
+            targetMode = TargetMode.First;
+        }
         if (type == TowerType.Mage)
         {
             damage = 22; range = 7.8f; fireRate = 1.2f; splashRadius = 1.5f; armor = 0;
@@ -99,7 +134,7 @@ public class Tower : MonoBehaviour
         fireTimer -= Time.deltaTime;
         if (fireTimer > 0f) return;
 
-        Enemy target = FindNearestEnemy();
+        Enemy target = SelectTarget();
         if (target == null) return;
 
         Shoot(target);
@@ -110,37 +145,88 @@ public class Tower : MonoBehaviour
     {
         soldierSpawnTimer -= Time.deltaTime;
         if (soldierSpawnTimer > 0f) return;
-        if (FindNearestEnemy() == null) return;
+
+        // 🔥 usa lista otimizada
+        if (Enemy.ActiveEnemies.Count == 0) return;
+
+        Vector3 spawnPos = transform.position + new Vector3(
+            Random.Range(-0.6f, 0.6f),
+            0.6f,
+            Random.Range(-0.6f, 0.6f)
+        );
 
         GameObject soldier = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        soldier.transform.position = transform.position + new Vector3(Random.Range(-0.6f, 0.6f), 0.6f, Random.Range(-0.6f, 0.6f));
+        soldier.transform.position = spawnPos;
         soldier.transform.localScale = new Vector3(0.45f, 0.7f, 0.45f);
 
         SoldierUnit unit = soldier.AddComponent<SoldierUnit>();
         unit.damage = Mathf.Max(6, damage / 2);
         unit.attackRate = 1.1f + (upgradeFireRateLevel * 0.08f);
-        unit.attackRange = 1.1f + (upgradeRangeLevel * 0.04f);
+        unit.attackRange = 1.6f + (upgradeRangeLevel * 0.1f);
         unit.lifetime = 9f + upgradeDamageLevel;
+
+        // 🔥 debug pra confirmar
+        Debug.Log("Soldado spawnado");
 
         soldierSpawnTimer = Mathf.Max(1.5f, 4.5f - (upgradeFireRateLevel * 0.4f));
     }
 
-    Enemy FindNearestEnemy()
+    Enemy SelectTarget()
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>();
-        Enemy nearest = null;
-        float nearestDistance = range;
+        var enemies = Enemy.ActiveEnemies;
 
-        for (int i = 0; i < enemies.Length; i++)
+        Enemy best = null;
+        float bestValue = float.MinValue;
+
+        Vector3 myPos = transform.position;
+        float rangeSqr = range * range;
+
+        foreach (var e in enemies)
         {
-            float d = Vector3.Distance(transform.position, enemies[i].transform.position);
-            if (d <= nearestDistance)
+            if (e == null || !e.gameObject.activeInHierarchy) continue;
+
+            Vector3 enemyPos = e.transform.position;
+            Vector3 diff = enemyPos - myPos;
+            float distSqr = diff.sqrMagnitude;
+
+            if (distSqr > rangeSqr) continue;
+
+            // 🔥 FILTRO DE TIPO
+            if (e.enemyType == EnemyTypeEnum.Flying && !canHitFlying)
+                continue;
+
+            if (e.enemyType != EnemyTypeEnum.Flying && !canHitGround)
+                continue;
+
+            float value = 0f;
+
+            switch (targetMode)
             {
-                nearestDistance = d;
-                nearest = enemies[i];
+                case TargetMode.Closest:
+                    value = -distSqr; // 🔥 evita sqrt
+                    break;
+
+                case TargetMode.Strongest:
+                    value = e.GetCurrentHealth();
+                    break;
+
+                case TargetMode.First:
+                    value = e.GetPathProgress();
+                    break;
+
+                case TargetMode.Last:
+                    value = -e.GetPathProgress();
+                    break;
+            }
+
+            if (value > bestValue)
+            {
+                best = e;
+                bestValue = value;
             }
         }
-        return nearest;
+
+        return best;
     }
 
     void Shoot(Enemy target)

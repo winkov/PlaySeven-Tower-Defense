@@ -2,66 +2,97 @@ using UnityEngine;
 
 public class SoldierUnit : MonoBehaviour
 {
-    public float speed = 4.2f;
-    public float attackRange = 1.1f;
-    public float attackRate = 1.1f;
-    public int damage = 14;
-    public float lifetime = 10f;
+    public int damage = 10;
+    public float attackRate = 1f;
+    public float attackRange = 1.5f;
+    public float lifetime = 8f;
 
     private float attackTimer;
-    private float lifeTimer;
+    private Enemy currentTarget;
 
     void Update()
     {
-        lifeTimer += Time.deltaTime;
-        if (lifeTimer >= lifetime)
+        lifetime -= Time.deltaTime;
+        if (lifetime <= 0f)
         {
+            ReleaseTarget();
             Destroy(gameObject);
-            return;
-        }
-
-        Enemy target = FindNearestEnemy();
-        if (target == null) return;
-
-        float distance = Vector3.Distance(transform.position, target.transform.position);
-
-        if (distance > attackRange)
-        {
-            transform.position = Vector3.MoveTowards(
-                transform.position,
-                target.transform.position,
-                speed * Time.deltaTime
-            );
             return;
         }
 
         attackTimer -= Time.deltaTime;
 
+        if (currentTarget == null)
+        {
+            FindTarget();
+            return;
+        }
+
+        if (currentTarget == null)
+        {
+            ReleaseTarget();
+            return;
+        }
+
+        float dist = Vector3.Distance(transform.position, currentTarget.transform.position);
+
+        if (dist > attackRange)
+        {
+            ReleaseTarget();
+            return;
+        }
+
+        // 🔥 trava inimigo
+        currentTarget.SetBlocked(transform);
+
+        // 🔥 olha pro inimigo
+        Vector3 dir = currentTarget.transform.position - transform.position;
+        dir.y = 0;
+        if (dir.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.LookRotation(dir);
+
         if (attackTimer <= 0f)
         {
-            target.TakeDamage(damage);
-            attackTimer = 1f / Mathf.Max(0.2f, attackRate);
+            currentTarget.TakeDamage(damage);
+            attackTimer = 1f / attackRate;
         }
     }
 
-    Enemy FindNearestEnemy()
+    void FindTarget()
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>();
+        float bestDist = attackRange;
+        Enemy best = null;
 
-        Enemy nearest = null;
-        float nearestDist = 999f;
-
-        for (int i = 0; i < enemies.Length; i++)
+        foreach (var e in Enemy.ActiveEnemies)
         {
-            float d = Vector3.Distance(transform.position, enemies[i].transform.position);
+            if (e == null) continue;
 
-            if (d < nearestDist)
+            float d = Vector3.Distance(transform.position, e.transform.position);
+            if (d <= bestDist)
             {
-                nearestDist = d;
-                nearest = enemies[i];
+                bestDist = d;
+                best = e;
             }
         }
 
-        return nearest;
+        if (best != null)
+        {
+            currentTarget = best;
+            currentTarget.SetBlocked(transform);
+        }
+    }
+
+    void ReleaseTarget()
+    {
+        if (currentTarget != null)
+        {
+            currentTarget.ReleaseBlock(transform);
+            currentTarget = null;
+        }
+    }
+
+    void OnDestroy()
+    {
+        ReleaseTarget();
     }
 }
