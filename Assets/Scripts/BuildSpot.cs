@@ -48,9 +48,13 @@ public class BuildSpot : MonoBehaviour
 
     void OnMouseDown()
     {
-        // 🔥 BLOQUEIA clique passando pela UI
+        // 🔥 BLOQUEIA se clicou através da UI
         if (UnityEngine.EventSystems.EventSystem.current != null &&
             UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+            return;
+
+        // 🔥 NÃO FAZ NADA se já tem torre
+        if (hasTower)
             return;
 
         UIManager manager = FindAnyObjectByType<UIManager>();
@@ -58,13 +62,7 @@ public class BuildSpot : MonoBehaviour
         {
             manager.ShowBuildChoice(this);
         }
-        if (Time.frameCount == lastClickFrame) return;
-        lastClickFrame = Time.frameCount;
     }
-
-    // =========================
-    // 🔥 NOVOS MÉTODOS (INTEGRAÇÃO UI)
-    // =========================
 
     public void ShowPreview()
     {
@@ -246,11 +244,28 @@ public class BuildSpot : MonoBehaviour
     {
         if (towerObject == null) return;
 
-        if (towerObject.GetComponent<Collider>() != null) return;
+        Renderer[] rends = towerObject.GetComponentsInChildren<Renderer>();
+        if (rends.Length == 0) return;
 
-        SphereCollider selectionCollider = towerObject.AddComponent<SphereCollider>();
-        selectionCollider.center = new Vector3(0f, 1f, 0f);
-        selectionCollider.radius = 0.8f;
+        Bounds bounds = rends[0].bounds;
+
+        for (int i = 1; i < rends.Length; i++)
+            bounds.Encapsulate(rends[i].bounds);
+
+        // remove collider antigo (se existir)
+        Collider existing = towerObject.GetComponent<Collider>();
+        if (existing != null)
+            Destroy(existing);
+
+        BoxCollider box = towerObject.AddComponent<BoxCollider>();
+
+        // 🔥 converte bounds global → local
+        box.center = towerObject.transform.InverseTransformPoint(bounds.center);
+
+        Vector3 size = bounds.size;
+        size.y += 0.5f; // aumenta um pouco pra facilitar clique
+
+        box.size *= 1.1f;
     }
     Transform CreateVisualByType(Transform root, TowerType type)
     {

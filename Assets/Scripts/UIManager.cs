@@ -688,19 +688,35 @@ public class UIManager : MonoBehaviour
         UpdateWaveMessage(false, 0);
     }
 
-    public void SelectTower(Tower tower)
+    void SelectTower(Tower tower)
     {
         selectedTower = tower;
-        if (buildChoicePanel != null) buildChoicePanel.SetActive(false);
-        if (pendingSpot != null) pendingSpot.SetBuildPreviewSelected(false);
+
+        if (buildChoicePanel != null)
+            buildChoicePanel.SetActive(false);
+
+        if (pendingSpot != null)
+            pendingSpot.SetBuildPreviewSelected(false);
+
         pendingSpot = null;
+
         UpdateTowerInfo();
+
+        // 🔥 NOVO: mostrar range
+        TowerRangeVisualizer.Show(
+            tower.transform.position,
+            tower.range
+        );
     }
 
-    public void DeselectTower()
+    void DeselectTower()
     {
         selectedTower = null;
+
         UpdateTowerInfo();
+
+        // 🔥 NOVO
+        TowerRangeVisualizer.Hide();
     }
 
     void Update()
@@ -724,40 +740,41 @@ public class UIManager : MonoBehaviour
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
         RaycastHit[] hits = Physics.RaycastAll(ray);
 
-        float closestDistance = float.MaxValue;
         BuildSpot closestSpot = null;
         Tower closestTower = null;
+
+        float closestSpotDist = float.MaxValue;
+        float closestTowerDist = float.MaxValue;
 
         for (int i = 0; i < hits.Length; i++)
         {
             float dist = hits[i].distance;
 
             BuildSpot spot = hits[i].collider.GetComponentInParent<BuildSpot>();
-            if (spot != null && dist < closestDistance)
+            if (spot != null && dist < closestSpotDist)
             {
-                closestDistance = dist;
+                closestSpotDist = dist;
                 closestSpot = spot;
-                closestTower = null;
-                continue;
             }
 
             Tower tower = hits[i].collider.GetComponentInParent<Tower>();
-            if (tower != null && dist < closestDistance)
+            if (tower != null && dist < closestTowerDist)
             {
-                closestDistance = dist;
+                closestTowerDist = dist;
                 closestTower = tower;
-                closestSpot = null;
             }
         }
 
-        // 🔥 se clicou em um spot, deixa o próprio BuildSpot lidar (OnMouseDown)
-        if (closestSpot != null)
-            return;
-
-        // 🔥 seleção de torre
-        if (closestTower != null)
+        // 🔥 prioridade absoluta: torre se estiver MAIS PERTO
+        if (closestTower != null && closestTowerDist <= closestSpotDist)
         {
             SelectTower(closestTower);
+            return;
+        }
+
+        // 🔥 senão, deixa o BuildSpot lidar
+        if (closestSpot != null)
+        {
             return;
         }
 
