@@ -211,13 +211,19 @@ public class VisualManager : MonoBehaviour
         Transform prev = path.GetWaypoint(path.Count - 2);
 
         Vector3 dir = (last.position - prev.position).normalized;
-        Vector3 pos = last.position + dir * 3f;
-        pos.y = 0.08f;
+        Vector3 pos = last.position + dir * 2f; // 🔥 menos deslocamento
+        pos.y = 0.5f; // 🔥 mais alto
 
-        if (castlePrefab == null) return;
+        if (castlePrefab == null)
+        {
+            Debug.LogError("Castle prefab NOT assigned!");
+            return;
+        }
 
-        GameObject castle = Instantiate(castlePrefab, pos, Quaternion.LookRotation(-dir), visualRoot);
-        castle.transform.localScale = Vector3.one * 0.5f;
+        GameObject castle = Instantiate(castlePrefab, pos, Quaternion.LookRotation(-dir));
+        castle.name = "Castle";
+
+        castle.transform.localScale = Vector3.one * 2.5f; // 🔥 antes tava MINÚSCULO
     }
 
     void CreateEnvironmentProps(WaypointPath path)
@@ -235,7 +241,7 @@ public class VisualManager : MonoBehaviour
 
             Vector3 mid = (a.position + b.position) / 2f;
 
-            float dist = 14f;
+            float dist = 6f;
 
             CreateTree(mid + side * dist);
             CreateTree(mid - side * dist);

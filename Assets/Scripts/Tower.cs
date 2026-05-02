@@ -30,6 +30,7 @@ public class Tower : MonoBehaviour
 
     private float fireTimer;
     private float soldierSpawnTimer;
+
     private int baseDamage;
     private float baseRange;
     private float baseFireRate;
@@ -56,36 +57,35 @@ public class Tower : MonoBehaviour
         {
             damage = 22; range = 7.8f; fireRate = 1.2f; splashRadius = 1.5f; armor = 0;
             upgradeDamageCost = 70; upgradeRangeCost = 65; upgradeFireRateCost = 70;
-            transform.localScale = Vector3.one * 0.78f;
         }
         else if (type == TowerType.Archer)
         {
             damage = 10; range = 10.8f; fireRate = 2.05f; splashRadius = 0f; armor = 0;
             upgradeDamageCost = 50; upgradeRangeCost = 60; upgradeFireRateCost = 55;
-            transform.localScale = Vector3.one * 0.86f;
         }
         else if (type == TowerType.Catapult)
         {
             damage = 52; range = 13.2f; fireRate = 0.52f; splashRadius = 2.5f; armor = 0;
             upgradeDamageCost = 95; upgradeRangeCost = 85; upgradeFireRateCost = 90;
-            transform.localScale = Vector3.one * 0.92f;
         }
         else
         {
             damage = 16; range = 3.4f; fireRate = 1.3f; splashRadius = 0f; armor = 5;
             upgradeDamageCost = 65; upgradeRangeCost = 55; upgradeFireRateCost = 60;
-            transform.localScale = Vector3.one * 0.88f;
         }
 
         upgradeDamageLevel = 0;
         upgradeRangeLevel = 0;
         upgradeFireRateLevel = 0;
+
         baseDamage = damage;
         baseRange = range;
         baseFireRate = fireRate;
         baseSplashRadius = splashRadius;
         baseArmor = armor;
         baseVisualScale = transform.localScale;
+
+        ApplyVisualIdentity(); // 🔥 NOVO
     }
 
     void Update()
@@ -112,142 +112,177 @@ public class Tower : MonoBehaviour
         if (soldierSpawnTimer > 0f) return;
         if (FindNearestEnemy() == null) return;
 
-        GameObject soldierObj = null;
-#if UNITY_EDITOR
-        soldierObj = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Miniature Army 2D V.1/Prefab/Soldier.prefab");
-#endif
+        GameObject soldier = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        soldier.transform.position = transform.position + new Vector3(Random.Range(-0.6f, 0.6f), 0.6f, Random.Range(-0.6f, 0.6f));
+        soldier.transform.localScale = new Vector3(0.45f, 0.7f, 0.45f);
 
-        GameObject spawned;
-        if (soldierObj != null)
-        {
-            spawned = Instantiate(soldierObj, transform.position + new Vector3(Random.Range(-0.6f, 0.6f), 0.45f, Random.Range(-0.6f, 0.6f)), Quaternion.identity);
-            spawned.transform.localScale = Vector3.one * 0.65f;
-        }
-        else
-        {
-            spawned = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            spawned.transform.position = transform.position + new Vector3(Random.Range(-0.6f, 0.6f), 0.6f, Random.Range(-0.6f, 0.6f));
-            spawned.transform.localScale = new Vector3(0.45f, 0.7f, 0.45f);
-        }
+        SoldierUnit unit = soldier.AddComponent<SoldierUnit>();
+        unit.damage = Mathf.Max(6, damage / 2);
+        unit.attackRate = 1.1f + (upgradeFireRateLevel * 0.08f);
+        unit.attackRange = 1.1f + (upgradeRangeLevel * 0.04f);
+        unit.lifetime = 9f + upgradeDamageLevel;
 
-        spawned.name = "Soldier";
-        SoldierUnit soldier = spawned.GetComponent<SoldierUnit>();
-        if (soldier == null) soldier = spawned.AddComponent<SoldierUnit>();
-        soldier.damage = Mathf.Max(6, damage / 2);
-        soldier.attackRate = 1.1f + (upgradeFireRateLevel * 0.08f);
-        soldier.attackRange = 1.1f + (upgradeRangeLevel * 0.04f);
-        soldier.lifetime = 9f + upgradeDamageLevel;
         soldierSpawnTimer = Mathf.Max(1.5f, 4.5f - (upgradeFireRateLevel * 0.4f));
     }
 
     Enemy FindNearestEnemy()
     {
         Enemy[] enemies = FindObjectsByType<Enemy>();
-        Enemy nearestEnemy = null;
+        Enemy nearest = null;
         float nearestDistance = range;
 
         for (int i = 0; i < enemies.Length; i++)
         {
-            float distance = Vector3.Distance(transform.position, enemies[i].transform.position);
-            if (distance <= nearestDistance)
+            float d = Vector3.Distance(transform.position, enemies[i].transform.position);
+            if (d <= nearestDistance)
             {
-                nearestDistance = distance;
-                nearestEnemy = enemies[i];
+                nearestDistance = d;
+                nearest = enemies[i];
             }
         }
-        return nearestEnemy;
+        return nearest;
     }
 
     void Shoot(Enemy target)
     {
         Vector3 spawnPosition = firePoint != null ? firePoint.position : transform.position + Vector3.up;
-        GameObject projectileObject = projectilePrefab != null ? Instantiate(projectilePrefab, spawnPosition, Quaternion.identity) : CreateRuntimeProjectile(spawnPosition);
-        Projectile projectile = projectileObject.GetComponent<Projectile>();
-        if (projectile == null) projectile = projectileObject.AddComponent<Projectile>();
+
+        GameObject proj = projectilePrefab != null
+            ? Instantiate(projectilePrefab, spawnPosition, Quaternion.identity)
+            : CreateRuntimeProjectile(spawnPosition);
+
+        Projectile projectile = proj.GetComponent<Projectile>();
+        if (projectile == null) projectile = proj.AddComponent<Projectile>();
+
         ConfigureProjectileVisual(projectile);
         projectile.SetTarget(target, damage);
-        if (GameManager.Instance != null) GameManager.Instance.RegisterTowerDamage(towerType, damage);
     }
 
-    GameObject CreateRuntimeProjectile(Vector3 spawnPosition)
+    GameObject CreateRuntimeProjectile(Vector3 pos)
     {
-        PrimitiveType primitive = towerType == TowerType.Archer ? PrimitiveType.Capsule : towerType == TowerType.Catapult ? PrimitiveType.Sphere : PrimitiveType.Sphere;
-        GameObject projectileObject = GameObject.CreatePrimitive(primitive);
-        projectileObject.transform.position = spawnPosition;
-        projectileObject.transform.localScale = Vector3.one * (towerType == TowerType.Catapult ? 0.38f : 0.22f);
-        Collider c = projectileObject.GetComponent<Collider>();
-        if (c != null) Destroy(c);
-        return projectileObject;
+        GameObject p = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        p.transform.position = pos;
+        Destroy(p.GetComponent<Collider>());
+        return p;
     }
 
     void ConfigureProjectileVisual(Projectile projectile)
     {
-        if (towerType == TowerType.Mage) { projectile.speed = 11f; projectile.visibleScale = 0.26f; projectile.visualColor = new Color(0.25f, 0.75f, 1f); projectile.splashRadius = splashRadius; }
-        else if (towerType == TowerType.Archer) { projectile.speed = 19f; projectile.visibleScale = 0.18f; projectile.visualColor = new Color(0.65f, 0.45f, 0.2f); projectile.splashRadius = 0f; }
-        else if (towerType == TowerType.Catapult) { projectile.speed = 8f; projectile.visibleScale = 0.4f; projectile.visualColor = new Color(0.35f, 0.35f, 0.38f); projectile.splashRadius = splashRadius; }
-        else { projectile.speed = 10f; projectile.visibleScale = 0.2f; projectile.visualColor = Color.gray; projectile.splashRadius = 0f; }
+        if (towerType == TowerType.Mage)
+        {
+            projectile.speed = 11f;
+            projectile.visibleScale = 0.3f;
+            projectile.visualColor = new Color(0.2f, 0.7f, 1f);
+            projectile.splashRadius = splashRadius;
+        }
+        else if (towerType == TowerType.Archer)
+        {
+            projectile.speed = 20f;
+            projectile.visibleScale = 0.12f;
+            projectile.visualColor = new Color(0.6f, 0.4f, 0.2f);
+        }
+        else if (towerType == TowerType.Catapult)
+        {
+            projectile.speed = 7f;
+            projectile.visibleScale = 0.5f;
+            projectile.visualColor = new Color(0.3f, 0.3f, 0.3f);
+            projectile.splashRadius = splashRadius;
+        }
+        else
+        {
+            projectile.speed = 10f;
+            projectile.visibleScale = 0.25f;
+            projectile.visualColor = Color.gray;
+        }
     }
 
-    public bool UpgradeDamage() { if (upgradeDamageLevel >= maxUpgradeLevel || GameManager.Instance == null || GameManager.Instance.Gold < upgradeDamageCost) return false; GameManager.Instance.AddGold(-upgradeDamageCost); upgradeDamageLevel++; damage = baseDamage + (upgradeDamageLevel * (towerType == TowerType.Archer ? 2 : towerType == TowerType.Catapult ? 8 : 5)); if (towerType == TowerType.Barracks) armor = baseArmor + upgradeDamageLevel * 2; ApplyUpgradeScaleVisual(); return true; }
-    public bool UpgradeRange() { if (upgradeRangeLevel >= maxUpgradeLevel || GameManager.Instance == null || GameManager.Instance.Gold < upgradeRangeCost) return false; GameManager.Instance.AddGold(-upgradeRangeCost); upgradeRangeLevel++; range = baseRange + (upgradeRangeLevel * (towerType == TowerType.Barracks ? 0.35f : towerType == TowerType.Catapult ? 0.75f : 0.9f)); if (towerType == TowerType.Catapult || towerType == TowerType.Mage) splashRadius = baseSplashRadius + (upgradeRangeLevel * 0.25f); ApplyUpgradeScaleVisual(); return true; }
-    public bool UpgradeFireRate() { if (upgradeFireRateLevel >= maxUpgradeLevel || GameManager.Instance == null || GameManager.Instance.Gold < upgradeFireRateCost) return false; GameManager.Instance.AddGold(-upgradeFireRateCost); upgradeFireRateLevel++; fireRate = baseFireRate + (upgradeFireRateLevel * (towerType == TowerType.Catapult ? 0.09f : towerType == TowerType.Archer ? 0.22f : 0.18f)); ApplyUpgradeScaleVisual(); return true; }
+    // 🔥 IDENTIDADE VISUAL
+    void ApplyVisualIdentity()
+    {
+        Renderer[] rends = GetComponentsInChildren<Renderer>();
+
+        Color color = Color.white;
+        float scale = 1f;
+
+        switch (towerType)
+        {
+            case TowerType.Mage:
+                color = new Color(0.3f, 0.7f, 1f);
+                scale = 0.8f;
+                break;
+
+            case TowerType.Archer:
+                color = new Color(0.6f, 0.4f, 0.2f);
+                scale = 0.9f;
+                break;
+
+            case TowerType.Catapult:
+                color = new Color(0.4f, 0.4f, 0.4f);
+                scale = 1.1f;
+                break;
+
+            case TowerType.Barracks:
+                color = new Color(0.8f, 0.2f, 0.2f);
+                scale = 1.0f;
+                break;
+        }
+
+        for (int i = 0; i < rends.Length; i++)
+        {
+            rends[i].material = new Material(Shader.Find("Standard"));
+            rends[i].material.color = color;
+        }
+
+        transform.localScale = baseVisualScale * scale;
+    }
+
+    public bool UpgradeDamage()
+    {
+        if (upgradeDamageLevel >= maxUpgradeLevel) return false;
+        if (GameManager.Instance == null || GameManager.Instance.Gold < upgradeDamageCost) return false;
+
+        GameManager.Instance.AddGold(-upgradeDamageCost);
+        upgradeDamageLevel++;
+
+        damage = baseDamage + (upgradeDamageLevel * (towerType == TowerType.Archer ? 2 : towerType == TowerType.Catapult ? 8 : 5));
+
+        ApplyUpgradeScaleVisual();
+        return true;
+    }
+
+    public bool UpgradeRange()
+    {
+        if (upgradeRangeLevel >= maxUpgradeLevel) return false;
+        if (GameManager.Instance == null || GameManager.Instance.Gold < upgradeRangeCost) return false;
+
+        GameManager.Instance.AddGold(-upgradeRangeCost);
+        upgradeRangeLevel++;
+
+        range = baseRange + (upgradeRangeLevel * 0.8f);
+
+        ApplyUpgradeScaleVisual();
+        return true;
+    }
+
+    public bool UpgradeFireRate()
+    {
+        if (upgradeFireRateLevel >= maxUpgradeLevel) return false;
+        if (GameManager.Instance == null || GameManager.Instance.Gold < upgradeFireRateCost) return false;
+
+        GameManager.Instance.AddGold(-upgradeFireRateCost);
+        upgradeFireRateLevel++;
+
+        fireRate = baseFireRate + (upgradeFireRateLevel * 0.2f);
+
+        ApplyUpgradeScaleVisual();
+        return true;
+    }
 
     void ApplyUpgradeScaleVisual()
     {
-        float levelFactor = (upgradeDamageLevel + upgradeRangeLevel + upgradeFireRateLevel) * 0.015f;
-        transform.localScale = baseVisualScale * (1f + Mathf.Clamp(levelFactor, 0f, 0.18f));
-    }
+        float level = upgradeDamageLevel + upgradeRangeLevel + upgradeFireRateLevel;
+        float scaleBoost = 1f + (level * 0.03f);
 
-    public void PlayUpgradeFeedback(Color glowColor)
-    {
-        Renderer[] renderers = GetComponentsInChildren<Renderer>();
-        for (int i = 0; i < renderers.Length; i++) renderers[i].material.color = Color.Lerp(renderers[i].material.color, glowColor, 0.35f);
-    }
-}
-
-public class SoldierUnit : MonoBehaviour
-{
-    public float speed = 4.2f;
-    public float attackRange = 1.1f;
-    public float attackRate = 1.1f;
-    public int damage = 14;
-    public float lifetime = 10f;
-
-    private float attackTimer;
-    private float lifeTimer;
-
-    void Update()
-    {
-        lifeTimer += Time.deltaTime;
-        if (lifeTimer >= lifetime) { Destroy(gameObject); return; }
-
-        Enemy target = FindNearestEnemy();
-        if (target == null) return;
-        float distance = Vector3.Distance(transform.position, target.transform.position);
-        if (distance > attackRange)
-        {
-            transform.position = Vector3.MoveTowards(transform.position, target.transform.position, speed * Time.deltaTime);
-            return;
-        }
-
-        attackTimer -= Time.deltaTime;
-        if (attackTimer <= 0f)
-        {
-            target.TakeDamage(damage);
-            attackTimer = 1f / Mathf.Max(0.2f, attackRate);
-        }
-    }
-
-    Enemy FindNearestEnemy()
-    {
-        Enemy[] enemies = FindObjectsByType<Enemy>();
-        Enemy nearest = null;
-        float nearestDist = 999f;
-        for (int i = 0; i < enemies.Length; i++)
-        {
-            float d = Vector3.Distance(transform.position, enemies[i].transform.position);
-            if (d < nearestDist) { nearestDist = d; nearest = enemies[i]; }
-        }
-        return nearest;
+        transform.localScale = baseVisualScale * scaleBoost;
     }
 }

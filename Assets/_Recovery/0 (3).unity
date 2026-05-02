@@ -345,10 +345,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BuildSpotGenerator
   buildSpotPrefab: {fileID: 0}
   towerPrefab: {fileID: 0}
-  sideOffset: 2.5
+  sideOffset: 3.5
   spotScale: 1
-  minDistanceFromPath: 3.6
-  segmentSpacing: 2
+  minDistanceFromPath: 2.2
+  segmentSpacing: 1
   buildCost: 50
   generateOnStart: 1
   spotsPerSide: 5
@@ -386,7 +386,7 @@ MonoBehaviour:
   pathHeight: 0.06
   cornerCut: 0.6
   treePrefabOverride: {fileID: 1454367513827238, guid: 13163dec39deaa547890ea523fe21b67, type: 3}
-  castlePrefab: {fileID: 1326093064322132, guid: a425124410f363a43adb6788601cc3e0, type: 3}
+  castlePrefab: {fileID: 1582112111176492, guid: d1b1882db25d6fc4f8ff52b752db2e26, type: 3}
 --- !u!1 &333101244
 GameObject:
   m_ObjectHideFlags: 0
