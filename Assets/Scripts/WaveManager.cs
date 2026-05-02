@@ -161,8 +161,9 @@ public class WaveManager : MonoBehaviour
         {
             spawnPosition = spawnPoint.position;
         }
-        
+
         // Se temos waypoint path, spawn no primeiro waypoint
+
         if (waypointPath != null && waypointPath.Count > 0)
         {
             Transform firstWaypoint = waypointPath.GetWaypoint(0);

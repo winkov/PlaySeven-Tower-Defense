@@ -6,43 +6,22 @@ public class VisualManager : MonoBehaviour
     public bool colorExistingObjects = true;
     public bool createPathVisuals = true;
     public bool createCastleVisual = true;
-    public bool createPathBorders = true;
     public bool createEnvironmentProps = true;
     public bool hideWaypointMeshes = true;
-    public bool useGroundTiles = false;
 
-    public float pathWidth = 5.2f;
-    public float pathHeight = 0.1f;
-    public float pathShoulderWidth = 0.9f;
-    public int treesPerPathSegment = 1;
-    public int rocksPerPathSegment = 1;
-    public float castleDistanceForward = 3.2f;
-    public float castleScale = 0.52f;
-    public float borderPadding = 4.8f;
-
-    public Color groundColor = new Color(0.42f, 0.67f, 0.24f);
-    public Color waypointColor = new Color(1f, 0.75f, 0.1f);
+    public float pathWidth = 3.2f;
+    public float pathHeight = 0.08f;
+    public float cornerCut = 0.6f; // quanto recorta antes do canto
 
     private Material groundMaterial;
     private Material pathMaterial;
-    private Material waypointMaterial;
-    private Material rockMaterial;
     private Transform visualRoot;
 
     public GameObject treePrefabOverride;
-    public GameObject rockPrefabOverride;
-    public GameObject groundTilePrefab;
     public GameObject castlePrefab;
-
-    public Material pathMaterialOverride;
-    public Material castleMaterialOverride;
-    public Material rockMaterialOverride;
 
     void Start()
     {
-#if UNITY_EDITOR
-        AutoAssignEnvironmentPrefabsInEditor();
-#endif
         RefreshWorldVisuals();
     }
 
@@ -51,7 +30,7 @@ public class VisualManager : MonoBehaviour
         CreateMaterials();
         CreateVisualRoot();
 
-        WaypointPath waypointPath = FindAnyObjectByType<WaypointPath>();
+        WaypointPath path = FindAnyObjectByType<WaypointPath>();
 
         if (colorExistingObjects)
         {
@@ -59,33 +38,31 @@ public class VisualManager : MonoBehaviour
             ColorWaypointSpheres();
         }
 
-        if (createPathVisuals) CreatePathSegments(waypointPath);
-        if (createCastleVisual) CreateCastle(waypointPath);
-        if (createEnvironmentProps) CreateEnvironmentProps(waypointPath);
-        if (setupCamera) SetupCamera(waypointPath);
+        if (createPathVisuals) CreatePath(path);
+        if (createCastleVisual) CreateCastle(path);
+        if (createEnvironmentProps) CreateEnvironmentProps(path);
+        if (setupCamera) SetupCamera(path);
     }
 
     void CreateMaterials()
     {
-        groundMaterial = CreateMaterial("Runtime Ground Material", groundColor);
-        pathMaterial = CreateMaterial("Runtime Path Material", new Color(0.88f, 0.70f, 0.46f));
-        waypointMaterial = CreateMaterial("Runtime Waypoint Material", waypointColor);
-        rockMaterial = rockMaterialOverride != null ? rockMaterialOverride : CreateMaterial("Runtime Rock Material", new Color(0.32f, 0.32f, 0.34f));
+        groundMaterial = CreateMaterial("Ground", new Color(0.42f, 0.67f, 0.24f));
+        pathMaterial = CreateMaterial("Path", new Color(0.88f, 0.70f, 0.46f));
     }
 
-    Material CreateMaterial(string materialName, Color color)
+    Material CreateMaterial(string name, Color color)
     {
-        Material material = new Material(Shader.Find("Standard"));
-        material.name = materialName;
-        material.color = color;
-        material.SetFloat("_Glossiness", 0.04f);
-        return material;
+        Material mat = new Material(Shader.Find("Standard"));
+        mat.name = name;
+        mat.color = color;
+        mat.SetFloat("_Glossiness", 0.04f);
+        return mat;
     }
 
     void CreateVisualRoot()
     {
-        GameObject oldRoot = GameObject.Find("Runtime Visuals");
-        if (oldRoot != null) Destroy(oldRoot);
+        GameObject old = GameObject.Find("Runtime Visuals");
+        if (old != null) Destroy(old);
         visualRoot = new GameObject("Runtime Visuals").transform;
     }
 
@@ -93,279 +70,212 @@ public class VisualManager : MonoBehaviour
     {
         GameObject ground = GameObject.Find("Ground");
         if (ground == null) return;
-        Renderer renderer = ground.GetComponent<Renderer>();
-        if (renderer != null) renderer.material = groundMaterial;
-        if (useGroundTiles) CreateGroundTiles(ground.transform.position);
-    }
 
-    void CreateGroundTiles(Vector3 center)
-    {
-        if (groundTilePrefab == null) return;
-        for (int x = -5; x <= 5; x++)
-        {
-            for (int z = -5; z <= 5; z++)
-            {
-                Vector3 p = center + new Vector3(x * 6f, 0.02f, z * 6f);
-                GameObject tile = Instantiate(groundTilePrefab, p, Quaternion.Euler(0f, Random.Range(0, 4) * 90f, 0f), visualRoot);
-                tile.transform.localScale = new Vector3(2.8f, 1f, 2.8f);
-            }
-        }
+        Renderer r = ground.GetComponent<Renderer>();
+        if (r != null) r.material = groundMaterial;
     }
 
     void ColorWaypointSpheres()
     {
-        WaypointPath waypointPath = FindAnyObjectByType<WaypointPath>();
-        if (waypointPath == null) return;
-        for (int i = 0; i < waypointPath.Count; i++)
+        WaypointPath path = FindAnyObjectByType<WaypointPath>();
+        if (path == null) return;
+
+        for (int i = 0; i < path.Count; i++)
         {
-            Transform waypoint = waypointPath.GetWaypoint(i);
-            if (waypoint == null) continue;
-            Renderer[] renderers = waypoint.GetComponentsInChildren<Renderer>(true);
-            for (int r = 0; r < renderers.Length; r++)
+            Transform wp = path.GetWaypoint(i);
+            if (wp == null) continue;
+
+            Renderer[] rends = wp.GetComponentsInChildren<Renderer>(true);
+            foreach (var r in rends)
+                r.enabled = false;
+        }
+    }
+
+    // =========================
+    // 🔥 CAMINHO COM CANTOS CORRETOS
+    // =========================
+    void CreatePath(WaypointPath path)
+    {
+        if (path == null || path.Count < 2) return;
+
+        for (int i = 0; i < path.Count - 1; i++)
+        {
+            Vector3 a = path.GetWaypoint(i).position;
+            Vector3 b = path.GetWaypoint(i + 1).position;
+
+            Vector3 dir = (b - a).normalized;
+
+            // verifica se existe curva
+            bool hasCorner = (i < path.Count - 2);
+
+            Vector3 start = a;
+            Vector3 end = b;
+
+            if (hasCorner)
             {
-                if (hideWaypointMeshes) renderers[r].enabled = false;
-                else renderers[r].material = waypointMaterial;
+                Vector3 next = path.GetWaypoint(i + 2).position;
+                Vector3 nextDir = (next - b).normalized;
+
+                // se muda direção → recorta antes do canto
+                if (Vector3.Dot(dir, nextDir) < 0.99f)
+                {
+                    end -= dir * cornerCut;
+                }
+            }
+
+            if (i > 0)
+            {
+                Vector3 prev = path.GetWaypoint(i - 1).position;
+                Vector3 prevDir = (a - prev).normalized;
+
+                if (Vector3.Dot(prevDir, dir) < 0.99f)
+                {
+                    start += dir * cornerCut;
+                }
+            }
+
+            CreateSegment(start, end);
+
+            // cria o “tampão” do canto
+            if (hasCorner)
+            {
+                Vector3 next = path.GetWaypoint(i + 2).position;
+                Vector3 nextDir = (next - b).normalized;
+
+                if (Vector3.Dot(dir, nextDir) < 0.99f)
+                {
+                    CreateCorner(b);
+                }
             }
         }
     }
 
-    void CreatePathSegments(WaypointPath waypointPath)
+    void CreateSegment(Vector3 a, Vector3 b)
     {
-        if (waypointPath == null || waypointPath.Count < 2) return;
-        for (int i = 0; i < waypointPath.Count - 1; i++)
+        a.y = 0.2f;
+        b.y = 0.2f;
+
+        Vector3 delta = b - a;
+
+        // 🔥 FORÇA ORTOGONAL
+        bool horizontal = Mathf.Abs(delta.x) > Mathf.Abs(delta.z);
+
+        Vector3 dir;
+        float length;
+
+        if (horizontal)
         {
-            Transform start = waypointPath.GetWaypoint(i);
-            Transform end = waypointPath.GetWaypoint(i + 1);
-            if (start == null || end == null) continue;
-
-            Vector3 a = start.position; a.y = 0.12f;
-            Vector3 b = end.position; b.y = 0.12f;
-            Vector3 dir = b - a;
-            float len = dir.magnitude;
-            if (len < 0.01f) continue;
-
-            CreatePathShoulder(a, dir.normalized, len, i);
-
-            GameObject segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            segment.name = "Path Segment " + (i + 1);
-            segment.transform.SetParent(visualRoot);
-            segment.transform.position = (a + b) * 0.5f;
-            segment.transform.rotation = Quaternion.LookRotation(dir.normalized);
-            segment.transform.localScale = new Vector3(pathWidth, pathHeight, len + 0.7f);
-            Renderer r = segment.GetComponent<Renderer>();
-            if (r != null) r.material = pathMaterial;
-            Collider c = segment.GetComponent<Collider>();
-            if (c != null) c.enabled = false;
-
-            if (createPathBorders) CreatePathBorder(a, dir.normalized, len, i);
+            dir = new Vector3(Mathf.Sign(delta.x), 0, 0);
+            length = Mathf.Abs(delta.x);
+        }
+        else
+        {
+            dir = new Vector3(0, 0, Mathf.Sign(delta.z));
+            length = Mathf.Abs(delta.z);
         }
 
-        for (int i = 1; i < waypointPath.Count - 1; i++)
-        {
-            Transform waypoint = waypointPath.GetWaypoint(i);
-            if (waypoint != null) CreatePathJoint(waypoint.position, i);
-        }
+        Vector3 mid = (a + b) * 0.5f;
+
+        GameObject segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        segment.transform.SetParent(visualRoot);
+        segment.transform.position = mid;
+        segment.transform.rotation = Quaternion.LookRotation(dir);
+
+        segment.transform.localScale = new Vector3(pathWidth, pathHeight, length);
+
+        Renderer r = segment.GetComponent<Renderer>();
+        if (r != null) r.material = pathMaterial;
+
+        Destroy(segment.GetComponent<Collider>());
     }
 
-    void CreatePathShoulder(Vector3 start, Vector3 direction, float length, int index)
+    // 🔥 peça de canto (remove o triângulo)
+    void CreateCorner(Vector3 pos)
     {
-        GameObject shoulder = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shoulder.name = "Path Shoulder " + index;
-        shoulder.transform.SetParent(visualRoot);
-        shoulder.transform.position = start + (direction * (length * 0.5f)) + Vector3.down * 0.025f;
-        shoulder.transform.rotation = Quaternion.LookRotation(direction);
-        shoulder.transform.localScale = new Vector3(pathWidth + pathShoulderWidth, pathHeight * 0.8f, length + 1.1f);
-        Renderer renderer = shoulder.GetComponent<Renderer>();
-        if (renderer != null) renderer.material = CreateMaterial("PathShoulderMat_" + index, new Color(0.58f, 0.43f, 0.22f));
-        Collider collider = shoulder.GetComponent<Collider>();
-        if (collider != null) collider.enabled = false;
+        GameObject corner = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        corner.transform.SetParent(visualRoot);
+        corner.transform.position = new Vector3(pos.x, 0.19f, pos.z);
+        corner.transform.localScale = new Vector3(pathWidth * 0.5f, pathHeight * 0.5f, pathWidth * 0.5f);
+
+        Renderer r = corner.GetComponent<Renderer>();
+        if (r != null) r.material = pathMaterial;
+
+        Destroy(corner.GetComponent<Collider>());
     }
 
-    void CreatePathBorder(Vector3 start, Vector3 direction, float length, int index)
+    void CreateCastle(WaypointPath path)
     {
-        GameObject border = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        border.name = "Path Border " + index;
-        border.transform.SetParent(visualRoot);
-        border.transform.position = start + (direction * (length * 0.5f));
-        border.transform.rotation = Quaternion.LookRotation(direction);
-        border.transform.localScale = new Vector3(pathWidth + pathShoulderWidth + 0.7f, pathHeight * 0.45f, length + 1.35f);
-        border.transform.position += Vector3.down * 0.045f;
-        Renderer renderer = border.GetComponent<Renderer>();
-        if (renderer != null) renderer.material = CreateMaterial("PathBorderMat_" + index, new Color(0.24f, 0.43f, 0.12f));
-        Collider collider = border.GetComponent<Collider>();
-        if (collider != null) collider.enabled = false;
-    }
+        if (path == null || path.Count < 2) return;
 
-    void CreatePathJoint(Vector3 position, int index)
-    {
-        GameObject joint = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        joint.name = "Path Joint " + index;
-        joint.transform.SetParent(visualRoot);
-        joint.transform.position = new Vector3(position.x, 0.11f, position.z);
-        joint.transform.localScale = new Vector3((pathWidth + 0.45f) * 0.5f, 0.05f, (pathWidth + 0.45f) * 0.5f);
-        Renderer renderer = joint.GetComponent<Renderer>();
-        if (renderer != null) renderer.material = pathMaterial;
-        Collider collider = joint.GetComponent<Collider>();
-        if (collider != null) collider.enabled = false;
-    }
+        Transform last = path.GetWaypoint(path.Count - 1);
+        Transform prev = path.GetWaypoint(path.Count - 2);
 
-    void CreateCastle(WaypointPath waypointPath)
-    {
-        if (waypointPath == null || waypointPath.Count == 0) return;
-        Transform lastWaypoint = waypointPath.GetWaypoint(waypointPath.Count - 1);
-        if (lastWaypoint == null) return;
-
-        GameObject existingCastle = GameObject.Find("Castle");
-        if (existingCastle != null)
-        {
-            Renderer[] oldRenderers = existingCastle.GetComponentsInChildren<Renderer>(true);
-            for (int i = 0; i < oldRenderers.Length; i++) oldRenderers[i].enabled = false;
-        }
+        Vector3 dir = (last.position - prev.position).normalized;
+        Vector3 pos = last.position + dir * 3f;
+        pos.y = 0.08f;
 
         if (castlePrefab == null) return;
-        Transform previousWaypoint = waypointPath.GetWaypoint(Mathf.Max(0, waypointPath.Count - 2));
-        Vector3 travelDir = previousWaypoint != null ? (lastWaypoint.position - previousWaypoint.position).normalized : Vector3.forward;
-        Vector3 pos = lastWaypoint.position + travelDir * castleDistanceForward;
-        pos.y = 0.08f;
-        GameObject castleAsset = Instantiate(castlePrefab, pos, Quaternion.LookRotation(-travelDir, Vector3.up), visualRoot);
-        castleAsset.name = "Castle";
-        castleAsset.transform.localScale = Vector3.one * castleScale;
 
-        if (castleMaterialOverride != null)
+        GameObject castle = Instantiate(castlePrefab, pos, Quaternion.LookRotation(-dir), visualRoot);
+        castle.transform.localScale = Vector3.one * 0.5f;
+    }
+
+    void CreateEnvironmentProps(WaypointPath path)
+    {
+        if (path == null || path.Count < 2) return;
+
+        for (int i = 0; i < path.Count - 1; i += 6)
         {
-            Renderer[] rends = castleAsset.GetComponentsInChildren<Renderer>(true);
-            for (int i = 0; i < rends.Length; i++) rends[i].material = castleMaterialOverride;
+            Transform a = path.GetWaypoint(i);
+            Transform b = path.GetWaypoint(i + 1);
+            if (a == null || b == null) continue;
+
+            Vector3 dir = (b.position - a.position).normalized;
+            Vector3 side = Vector3.Cross(Vector3.up, dir);
+
+            Vector3 mid = (a.position + b.position) / 2f;
+
+            float dist = 14f;
+
+            CreateTree(mid + side * dist);
+            CreateTree(mid - side * dist);
         }
     }
 
-    void CreateEnvironmentProps(WaypointPath waypointPath)
+    void CreateTree(Vector3 pos)
     {
-        if (waypointPath == null || waypointPath.Count < 2) return;
-
-        Bounds bounds = GetPathBounds(waypointPath);
-        CreateForestBorder(bounds);
-        CreateSparseProps(waypointPath, bounds);
-    }
-
-    void CreateForestBorder(Bounds bounds)
-    {
-        float minX = bounds.min.x - borderPadding;
-        float maxX = bounds.max.x + borderPadding;
-        float minZ = bounds.min.z - borderPadding;
-        float maxZ = bounds.max.z + borderPadding;
-
-        for (float x = minX; x <= maxX; x += 5.4f)
-        {
-            CreateTree(new Vector3(x, 0f, minZ));
-            CreateTree(new Vector3(x, 0f, maxZ));
-        }
-
-        for (float z = minZ + 5f; z <= maxZ - 5f; z += 5.4f)
-        {
-            CreateTree(new Vector3(minX, 0f, z));
-            CreateTree(new Vector3(maxX, 0f, z));
-        }
-    }
-
-    void CreateSparseProps(WaypointPath waypointPath, Bounds bounds)
-    {
-        for (int i = 0; i < waypointPath.Count - 1; i++)
-        {
-            Transform start = waypointPath.GetWaypoint(i);
-            Transform end = waypointPath.GetWaypoint(i + 1);
-            if (start == null || end == null) continue;
-
-            Vector3 dir = (end.position - start.position).normalized;
-            Vector3 side = Vector3.Cross(Vector3.up, dir).normalized;
-
-            for (int t = 0; t < treesPerPathSegment; t++)
-            {
-                float pct = (t + 1f) / (treesPerPathSegment + 1f);
-                Vector3 basePos = Vector3.Lerp(start.position, end.position, pct);
-                float sign = t % 2 == 0 ? 1f : -1f;
-                float dist = 10.5f;
-                Vector3 pos = basePos + side * sign * dist;
-                if (IsNearCenter(bounds, pos)) continue;
-                CreateTree(pos);
-            }
-
-            for (int r = 0; r < rocksPerPathSegment; r++)
-            {
-                float pct = 0.5f;
-                Vector3 basePos = Vector3.Lerp(start.position, end.position, pct);
-                Vector3 pos = basePos + side * (r == 0 ? -6.5f : 6.5f);
-                if (IsNearCenter(bounds, pos)) continue;
-                CreateRock(pos);
-            }
-        }
-    }
-
-    bool IsNearCenter(Bounds bounds, Vector3 position)
-    {
-        Vector3 center = bounds.center;
-        return Mathf.Abs(position.x - center.x) < 10f && Mathf.Abs(position.z - center.z) < 8f;
-    }
-
-    void CreateTree(Vector3 position)
-    {
-        position.y = 0f;
         if (treePrefabOverride == null) return;
-        GameObject treeAsset = Instantiate(treePrefabOverride, position, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), visualRoot);
-        float s = Random.Range(1.8f, 2.35f);
-        treeAsset.transform.localScale = Vector3.one * s;
+
+        pos.y = 0;
+
+        GameObject tree = Instantiate(
+            treePrefabOverride,
+            pos,
+            Quaternion.Euler(0, Random.Range(0, 360), 0),
+            visualRoot
+        );
+
+        tree.transform.localScale = Vector3.one * Random.Range(1.8f, 2.3f);
     }
 
-    void CreateRock(Vector3 position)
-    {
-        position.y = 0.04f;
-        if (rockPrefabOverride == null) return;
-        GameObject rockAsset = Instantiate(rockPrefabOverride, position, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), visualRoot);
-        float s = Random.Range(1f, 1.35f);
-        rockAsset.transform.localScale = Vector3.one * s;
-        if (rockMaterialOverride != null)
-        {
-            Renderer[] rends = rockAsset.GetComponentsInChildren<Renderer>(true);
-            for (int i = 0; i < rends.Length; i++) rends[i].material = rockMaterialOverride;
-        }
-    }
-
-    void SetupCamera(WaypointPath waypointPath)
+    void SetupCamera(WaypointPath path)
     {
         Camera cam = Camera.main;
         if (cam == null) return;
-        Bounds bounds = waypointPath != null ? GetPathBounds(waypointPath) : new Bounds(Vector3.zero, new Vector3(40f, 0f, 40f));
-        Vector3 center = bounds.center;
-        cam.transform.position = new Vector3(center.x - 0.2f, 12.8f, center.z - 8.8f);
+
+        Vector3 center = Vector3.zero;
+
+        if (path != null && path.Count > 0)
+        {
+            for (int i = 0; i < path.Count; i++)
+                center += path.GetWaypoint(i).position;
+
+            center /= path.Count;
+        }
+
+        cam.transform.position = new Vector3(center.x, 13f, center.z - 9f);
         cam.transform.rotation = Quaternion.Euler(50f, 0f, 0f);
         cam.orthographic = true;
-        cam.orthographicSize = Mathf.Max(7.4f, bounds.extents.z + 0.8f);
+        cam.orthographicSize = 10f;
     }
-
-    Bounds GetPathBounds(WaypointPath waypointPath)
-    {
-        if (waypointPath == null || waypointPath.Count == 0) return new Bounds(Vector3.zero, new Vector3(40f, 0f, 40f));
-
-        Bounds bounds = new Bounds(waypointPath.GetWaypoint(0).position, Vector3.zero);
-        for (int i = 1; i < waypointPath.Count; i++)
-        {
-            Transform waypoint = waypointPath.GetWaypoint(i);
-            if (waypoint != null) bounds.Encapsulate(waypoint.position);
-        }
-        return bounds;
-    }
-
-#if UNITY_EDITOR
-    void AutoAssignEnvironmentPrefabsInEditor()
-    {
-        if (treePrefabOverride == null) treePrefabOverride = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Meshtint Free Toon Assets/Santa Claus/Prefabs/Tree 01.prefab");
-        if (rockPrefabOverride == null) rockPrefabOverride = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Meshtint Free Toon Assets/Santa Claus/Prefabs/Rock 01.prefab");
-        if (groundTilePrefab == null) groundTilePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Meshtint Free Toon Assets/Cars and City Pack/Prefabs/Grass 01.prefab");
-        if (castlePrefab == null) castlePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/TowerDefenceAssets/Prefabs/Towers/Tower_15.prefab");
-        if (castlePrefab == null) castlePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Low-Poly medival defense/Models/Gate.fbx");
-        if (castleMaterialOverride == null) castleMaterialOverride = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Low-Poly medival defense/Materials/Gate_Diffuse.mat");
-        if (rockMaterialOverride == null) rockMaterialOverride = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Low-Poly medival defense/Materials/TNT_FULL.mat");
-        if (pathMaterialOverride == null) pathMaterialOverride = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/TowerDefenceAssets/Materials/Demo Scene/RoadBlock.mat");
-        if (pathMaterialOverride == null) pathMaterialOverride = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Meshtint Free Toon Assets/Cars and City Pack/Materials/Cross Roads.mat");
-    }
-#endif
 }

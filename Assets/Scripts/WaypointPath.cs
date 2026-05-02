@@ -31,25 +31,44 @@ public class WaypointPath : MonoBehaviour
 
     public void GenerateRandomPath(int stage)
     {
-        for (int i = transform.childCount - 1; i >= 0; i--) Destroy(transform.GetChild(i).gameObject);
+        for (int i = transform.childCount - 1; i >= 0; i--)
+            Destroy(transform.GetChild(i).gameObject);
 
-        // Caminho em zigzag com elevação: esquerda→direita, desce, direita→esquerda, desce, esquerda→direita
-        Vector3[] layout =
-        {
-            new Vector3(-26f, 0.2f, -8f),      // Esquerda - subida
-            new Vector3(24f, 0.5f, -8f),       // Direita - topo
-            new Vector3(24f, 0.3f, -2f),       // Desce um pouco
-            new Vector3(-26f, 0.5f, -2f),      // Volta pra esquerda - topo
-            new Vector3(-26f, 0.3f, 4f),       // Desce mais
-            new Vector3(24f, 0.5f, 4f),        // Vai pra direita de novo - topo
-            new Vector3(24f, 0.2f, 10f)        // Final na direita
-        };
+        float left = -20f;
+        float right = 20f;
 
-        for (int i = 0; i < layout.Length; i++) CreateWaypoint("WP_" + i, layout[i]);
+        float z1 = 8f;
+        float z2 = 2f;
+        float z3 = -4f;
+
+        CreateWaypoint("WP_0", new Vector3(left, 0.2f, z1));
+        CreateWaypoint("WP_1", new Vector3(right, 0.2f, z1));
+
+        CreateWaypoint("WP_2", new Vector3(right, 0.2f, z2));
+
+        CreateWaypoint("WP_3", new Vector3(left, 0.2f, z2));
+
+        CreateWaypoint("WP_4", new Vector3(left, 0.2f, z3));
+
+        CreateWaypoint("WP_5", new Vector3(right, 0.2f, z3));
 
         RefreshWaypoints();
     }
+    int CreateLine(Vector3 start, Vector3 end, int index, float spacing)
+    {
+        float dist = Vector3.Distance(start, end);
+        int steps = Mathf.CeilToInt(dist / spacing);
 
+        for (int i = 0; i < steps; i++)
+        {
+            float t = i / (float)steps;
+            Vector3 pos = Vector3.Lerp(start, end, t);
+            CreateWaypoint("WP_" + index, pos);
+            index++;
+        }
+
+        return index;
+    }
     void CreateWaypoint(string waypointName, Vector3 position)
     {
         GameObject waypoint = new GameObject(waypointName);
