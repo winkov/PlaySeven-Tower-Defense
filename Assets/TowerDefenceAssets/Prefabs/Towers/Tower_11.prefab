@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 3113066216117659508}
   - component: {fileID: 126600331113585578}
   - component: {fileID: 2402483597102307459}
+  - component: {fileID: 1153350738214693471}
   m_Layer: 0
   m_Name: Tower_11
   m_TagString: Untagged
@@ -58,6 +59,11 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -79,7 +85,40 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &1153350738214693471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6566785119722903911}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d86a67b530dcd6a47a47043338fb2315, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tower
+  targetMode: 0
+  canHitFlying: 1
+  canHitGround: 1
+  towerType: 0
+  range: 8
+  fireRate: 1
+  damage: 20
+  splashRadius: 0
+  armor: 0
+  projectilePrefab: {fileID: 1404561210675509789, guid: 2173525208fa12d42a5f5fe48839cd6b, type: 3}
+  firePoint: {fileID: 2687163152502682227, guid: cda2116e7c386f441bcaf743f0630311, type: 3}
+  debugLogs: 1
+  upgradeDamageLevel: 0
+  upgradeRangeLevel: 0
+  upgradeFireRateLevel: 0
+  maxUpgradeLevel: 5
+  upgradeDamageCost: 50
+  upgradeRangeCost: 50
+  upgradeFireRateCost: 50

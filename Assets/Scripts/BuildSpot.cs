@@ -123,16 +123,25 @@ public class BuildSpot : MonoBehaviour
         GameObject towerObject;
         GameObject selectedPrefab = GetTowerPrefabByType(towerType);
 
+        Debug.Log("Prefab encontrado: " + selectedPrefab);
+
+        // =========================
+        // SPAWN
+        // =========================
         if (selectedPrefab != null)
         {
-            towerObject = Instantiate(selectedPrefab, towerPosition + Vector3.up * 0.8f, Quaternion.identity);
+            towerObject = Instantiate(
+                selectedPrefab,
+                towerPosition + Vector3.up * 0.8f,
+                Quaternion.identity
+            );
 
-            // 🔥 aplica layer automaticamente
             int towerLayer = LayerMask.NameToLayer("Tower");
             if (towerLayer != -1)
             {
                 SetLayerRecursively(towerObject, towerLayer);
             }
+
             towerObject.transform.localScale = Vector3.one * 0.56f;
         }
         else
@@ -141,15 +150,48 @@ public class BuildSpot : MonoBehaviour
             towerObject.transform.position = towerPosition + Vector3.up * 0.5f;
         }
 
-        Transform firePoint = selectedPrefab == null
-            ? CreateVisualByType(towerObject.transform, towerType)
-            : FindFirePointFromPrefab(towerObject.transform);
-
+        // =========================
+        // PEGAR / CRIAR TOWER
+        // =========================
         builtTower = towerObject.GetComponent<Tower>();
+
         if (builtTower == null)
+        {
             builtTower = towerObject.AddComponent<Tower>();
+        }
+
+        // =========================
+        // CONFIGURAR FIRE POINT (CORRIGIDO)
+        // =========================
+        Transform firePoint = FindFirePointFromPrefab(towerObject.transform);
+
+        if (firePoint == null)
+        {
+            GameObject fp = new GameObject("FirePoint");
+            fp.transform.SetParent(towerObject.transform);
+            fp.transform.localPosition = new Vector3(0, 1.2f, 0);
+            firePoint = fp.transform;
+        }
 
         builtTower.firePoint = firePoint;
+
+        // =========================
+        // CONFIGURAR PROJECTILE (UMA VEZ SÓ)
+        // =========================
+        GameObject projectile = Resources.Load<GameObject>("Projectile");
+
+        if (projectile == null)
+        {
+            Debug.LogError("🚨 NÃO achou Projectile em Resources!", this);
+        }
+        else
+        {
+            builtTower.projectilePrefab = projectile;
+        }
+
+        // =========================
+        // CONFIG FINAL
+        // =========================
         builtTower.debugLogs = false;
         builtTower.ConfigureByType(towerType);
 

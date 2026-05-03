@@ -54,12 +54,19 @@ public class Tower : MonoBehaviour
     void Awake()
     {
         CreateTargetLine();
+
         baseDamage = damage;
         baseRange = range;
         baseFireRate = fireRate;
         baseSplashRadius = splashRadius;
         baseArmor = armor;
         baseVisualScale = transform.localScale;
+
+        // 🔥 ADICIONA ISSO
+        if (projectilePrefab == null)
+        {
+            Debug.LogError("🚨 Tower sem projectilePrefab configurado!", this);
+        }
     }
     void CreateTargetLine()
     {
@@ -290,25 +297,46 @@ public class Tower : MonoBehaviour
 
     void Shoot(Enemy target)
     {
-        Vector3 spawnPosition = firePoint != null ? firePoint.position : transform.position + Vector3.up;
+        Vector3 spawnPosition = firePoint != null
+            ? firePoint.position
+            : transform.position + Vector3.up;
 
-        GameObject proj = projectilePrefab != null
-            ? Instantiate(projectilePrefab, spawnPosition, Quaternion.identity)
-            : CreateRuntimeProjectile(spawnPosition);
+        GameObject proj;
+
+        if (projectilePrefab != null)
+        {
+            proj = Instantiate(projectilePrefab, spawnPosition, Quaternion.identity);
+        }
+        else
+        {
+            Debug.LogWarning("⚠ ProjectilePrefab NULL - usando fallback", this);
+            proj = CreateRuntimeProjectile(spawnPosition);
+        }
 
         Projectile projectile = proj.GetComponent<Projectile>();
-        if (projectile == null) projectile = proj.AddComponent<Projectile>();
+        if (projectile == null)
+            projectile = proj.AddComponent<Projectile>();
 
         ConfigureProjectileVisual(projectile);
         projectile.SetTarget(target, damage);
-        lineTimer = 0.08f; // tempo visível da linha
+
+        lineTimer = 0.08f;
     }
 
     GameObject CreateRuntimeProjectile(Vector3 pos)
     {
         GameObject p = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         p.transform.position = pos;
+
         Destroy(p.GetComponent<Collider>());
+
+        var proj = p.AddComponent<Projectile>();
+
+        // 🔥 IMPORTANTE: aqui você precisa arrastar manual depois
+        // (ou vai continuar null)
+        proj.shootSound = null;
+        proj.impactSound = null;
+
         return p;
     }
 

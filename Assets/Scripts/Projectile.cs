@@ -1,5 +1,4 @@
 using UnityEngine;
-using System.Collections;
 
 public class Projectile : MonoBehaviour
 {
@@ -9,22 +8,36 @@ public class Projectile : MonoBehaviour
     public float splashRadius = 0f;
     public Color visualColor = Color.white;
 
+    public GameObject impactPrefab;
+    public AudioClip shootSound;
+    public AudioClip impactSound;
+
     private Enemy target;
     private int damage;
+    private float arcOffset;
+
+    // 🔥 controle de spam de som
+    private static float lastImpactSoundTime;
 
     void Start()
     {
         transform.localScale = Vector3.one * visibleScale;
 
+        arcOffset = Random.Range(0f, 10f);
+
         Renderer r = GetComponent<Renderer>();
         if (r != null)
-        {
-            r.material = new Material(Shader.Find("Standard"));
             r.material.color = visualColor;
 
-            // 🔥 deixa emissivo (mais bonito)
-            r.material.EnableKeyword("_EMISSION");
-            r.material.SetColor("_EmissionColor", visualColor * 1.5f);
+        TrailRenderer tr = GetComponent<TrailRenderer>();
+        if (tr != null)
+            tr.Clear();
+
+        // 🔊 SOM DE TIRO (AGORA COM AUDIOMANAGER)
+        if (shootSound != null && AudioManager.Instance != null)
+        {
+            float volume = Random.Range(0.5f, 0.7f);
+            AudioManager.Instance.PlaySFX(shootSound, volume);
         }
     }
 
@@ -43,8 +56,7 @@ public class Projectile : MonoBehaviour
         }
 
         Vector3 targetPosition = target.transform.position + Vector3.up * 0.5f;
-
-        Vector3 dir = (targetPosition - transform.position);
+        Vector3 dir = targetPosition - transform.position;
 
         if (dir.sqrMagnitude < 0.0001f)
         {
@@ -57,14 +69,17 @@ public class Projectile : MonoBehaviour
         // 🔥 arco leve (catapult feel)
         if (splashRadius > 0.5f)
         {
-            float arc = Mathf.Sin(Time.time * 10f) * 0.15f;
+            float arc = Mathf.Sin((Time.time + arcOffset) * 10f) * 0.15f;
             dir.y += arc;
         }
 
         transform.position += dir * speed * Time.deltaTime;
         transform.rotation = Quaternion.LookRotation(dir);
 
-        if (Vector3.Distance(transform.position, targetPosition) <= hitDistance)
+        // 🔥 giro leve (visual melhor)
+        transform.Rotate(0f, 360f * Time.deltaTime, 0f);
+
+        if ((transform.position - targetPosition).sqrMagnitude <= hitDistance * hitDistance)
         {
             HitTarget(targetPosition);
         }
@@ -72,10 +87,12 @@ public class Projectile : MonoBehaviour
 
     void HitTarget(Vector3 hitPos)
     {
+        // 💥 dano
         if (splashRadius > 0.01f)
         {
-            Enemy[] enemies = FindObjectsByType<Enemy>();
-            for (int i = 0; i < enemies.Length; i++)
+            var enemies = Enemy.ActiveEnemies;
+
+            for (int i = 0; i < enemies.Count; i++)
             {
                 if (Vector3.Distance(hitPos, enemies[i].transform.position) <= splashRadius)
                 {
@@ -89,42 +106,37 @@ public class Projectile : MonoBehaviour
                 target.TakeDamage(damage);
         }
 
+        // 💥 FX
         CreateImpactFx();
+
+        // 🔊 SOM DE IMPACTO (COM CONTROLE + AUDIOMANAGER)
+        if (impactSound != null && AudioManager.Instance != null)
+        {
+            if (Time.time - lastImpactSoundTime > 0.05f)
+            {
+                float volume = Random.Range(0.6f, 0.8f);
+                AudioManager.Instance.PlaySFX(impactSound, volume);
+                lastImpactSoundTime = Time.time;
+            }
+        }
+
         Destroy(gameObject);
     }
 
-    // 🔥 IMPACTO VISUAL MELHORADO
     void CreateImpactFx()
     {
-        GameObject fx = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        fx.transform.position = transform.position + Vector3.up * 0.2f;
-        fx.transform.localScale = Vector3.one * 0.2f;
-
-        Renderer r = fx.GetComponent<Renderer>();
-        if (r != null)
+        if (impactPrefab != null)
         {
-            r.material.color = visualColor;
+            GameObject fx = Instantiate(
+                impactPrefab,
+                transform.position + Vector3.up * 0.2f,
+                Quaternion.identity
+            );
+
+            float scale = splashRadius > 0 ? 1.5f : 1f;
+            fx.transform.localScale *= scale;
+
+            Destroy(fx, 1.2f);
         }
-
-        Destroy(fx.GetComponent<Collider>());
-
-        // 🔥 SUMIR RÁPIDO (ANTES TAVA POLUINDO)
-        Destroy(fx, 0.08f);
-    }
-
-    // 🔥 animação do impacto (expansão)
-    IEnumerator ImpactAnim(GameObject fx)
-    {
-        float t = 0f;
-        Vector3 start = fx.transform.localScale;
-
-        while (t < 0.2f)
-        {
-            t += Time.deltaTime;
-            fx.transform.localScale = start * (1f + t * 2f);
-            yield return null;
-        }
-
-        Destroy(fx);
     }
 }

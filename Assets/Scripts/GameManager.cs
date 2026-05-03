@@ -26,6 +26,8 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+
+
         gold = startingGold;
         castleHealth = castleMaxHealth;
         uiManager = FindAnyObjectByType<UIManager>();

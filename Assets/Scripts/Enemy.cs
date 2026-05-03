@@ -8,15 +8,17 @@ public class Enemy : MonoBehaviour
     public int maxHealth = 100;
     public int goldValue = 10;
     public int castleDamage = 1;
-
+    public GameObject deathEffectPrefab;
     private int currentHealth;
     private int currentWaypointIndex;
     private WaypointPath waypointPath;
     private WaveManager waveManager;
     private bool isDead;
     private bool isBlocked = false;
-    private Transform blocker; private Renderer meshRenderer;
+    private Transform blocker;
 
+    private Renderer[] meshRenderers;
+    private Color originalColor;
     private GameObject healthBarCanvasObj;
     private Image healthBarFill;
 
@@ -83,7 +85,12 @@ public class Enemy : MonoBehaviour
 
         DisablePhysics();
 
-        meshRenderer = GetComponent<Renderer>();
+        meshRenderers = GetComponentsInChildren<Renderer>();
+
+        if (meshRenderers != null && meshRenderers.Length > 0)
+        {
+            originalColor = meshRenderers[0].material.color;
+        }
 
         ApplyVisualByType(enemyType);
 
@@ -99,7 +106,16 @@ public class Enemy : MonoBehaviour
         targetHealthPct = 1f;
         healthBarFill.fillAmount = 1f;
     }
+    System.Collections.IEnumerator HitFlash()
+    {
+        foreach (var r in meshRenderers)
+            r.material.color = Color.white;
 
+        yield return new WaitForSeconds(0.08f);
+
+        foreach (var r in meshRenderers)
+            r.material.color = originalColor;
+    }
     void DisablePhysics()
     {
         Animator animator = GetComponent<Animator>();
@@ -140,7 +156,7 @@ public class Enemy : MonoBehaviour
 
         Canvas canvas = popup.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
-        canvas.worldCamera = Camera.main;
+        canvas.worldCamera = mainCamera;
 
         RectTransform rect = popup.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(2f, 1f);
@@ -168,8 +184,8 @@ public class Enemy : MonoBehaviour
             popup.transform.position = Vector3.Lerp(start, end, t);
 
             // 🔥 sempre olhando pra câmera
-            if (Camera.main != null)
-                popup.transform.forward = Camera.main.transform.forward;
+            if (mainCamera != null)
+                popup.transform.forward = mainCamera.transform.forward;
 
             Color c = text.color;
             c.a = 1f - t;
@@ -247,10 +263,18 @@ public class Enemy : MonoBehaviour
 
     void ApplyVisualByType(EnemyTypeEnum type)
     {
-        if (meshRenderer == null) meshRenderer = GetComponent<Renderer>();
-
-        if (meshRenderer != null)
-            meshRenderer.material.color = EnemyTypeHelper.GetColor(type);
+        Color color = EnemyTypeHelper.GetColor(type);
+        if (meshRenderers == null || meshRenderers.Length == 0)
+        {
+            meshRenderers = GetComponentsInChildren<Renderer>(true);
+        }
+        for (int i = 0; i < meshRenderers.Length; i++)
+        {
+            if (meshRenderers[i] != null && meshRenderers[i].material != null)
+            {
+                meshRenderers[i].material.color = color;
+            }
+        }
 
         transform.localScale = Vector3.one * EnemyTypeHelper.GetScale(type) * 1.2f;
 
@@ -264,8 +288,8 @@ public class Enemy : MonoBehaviour
 
             Destroy(body.GetComponent<Collider>());
 
-            leftLeg = CreateLeg("LeftLeg", new Vector3(-0.18f, 0.25f, 0f));
-            rightLeg = CreateLeg("RightLeg", new Vector3(0.18f, 0.25f, 0f));
+            leftLeg = transform.Find("LeftLeg") ?? transform.GetComponentInChildren<Transform>().Find("LeftLeg");
+            rightLeg = transform.Find("RightLeg") ?? transform.GetComponentInChildren<Transform>().Find("RightLeg");
         }
         else
         {
@@ -498,6 +522,7 @@ public class Enemy : MonoBehaviour
         currentHealth = Mathf.Max(0, currentHealth); // 🔥 evita negativo
 
         ShowDamagePopup(dmg);
+        StartCoroutine(HitFlash());
 
         UpdateHealthBar();
 
@@ -517,6 +542,7 @@ public class Enemy : MonoBehaviour
 
     void Die(bool giveGold)
     {
+        Debug.Log("INIMIGO MORREU", this);
         if (isDead) return;
 
         isDead = true;
@@ -530,6 +556,11 @@ public class Enemy : MonoBehaviour
         if (healthBarCanvasObj != null)
             Destroy(healthBarCanvasObj);
 
+        if (deathEffectPrefab != null)
+        {
+            GameObject fx = Instantiate(deathEffectPrefab, transform.position + Vector3.up * 1f, Quaternion.identity);
+            Destroy(fx, 1f);
+        }
         Destroy(gameObject);
     }
     void OnDestroy()
